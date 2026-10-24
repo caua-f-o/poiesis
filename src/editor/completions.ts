@@ -13,9 +13,9 @@ import {
   completeFromList,
   completionStatus,
   snippetCompletion as snip,
-  startCompletion,
 } from "@codemirror/autocomplete";
 import { EditorView } from "@codemirror/view";
+import { Transaction } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import type { EditorState } from "@codemirror/state";
 import { getIndex, type Loc } from "@/lib/indexer";
@@ -698,7 +698,9 @@ export const autoOpenCompletion = EditorView.updateListener.of((u) => {
   const prevHead = u.startState.selection.main.head;
   if (prevHead === sel.head && !u.docChanged) return;
   const txt = u.state.sliceDoc(Math.max(0, sel.head - 200), sel.head);
-  if (AUTO_OPEN.some((re) => re.test(txt))) setTimeout(() => startCompletion(u.view), 0);
+  // abre como se fosse digitação (modo implícito): a lista some sozinha quando o contexto acaba,
+  // em vez de ficar presa mostrando todos os globais
+  if (AUTO_OPEN.some((re) => re.test(txt))) setTimeout(() => u.view.dispatch({ annotations: Transaction.userEvent.of("input.type") }), 0);
 });
 
 /* ---------------- montagem ---------------- */
@@ -721,4 +723,4 @@ export function completionSources(fileKind: () => Lang): CompletionSource[] {
 }
 
 export const langOfKind = (kind: string, name: string): Lang =>
-  kind === "html" || /\.svg$/i.test(name) ? "html" : kind === "css" ? "css" : kind === "js" || kind === "json" ? "js" : kindOf(name) === "html" ? "html" : "other";
+  kind === "html" || /\.svg$/i.test(name) ? "html" : kind === "css" ? "css" : kind === "js" ? "js" : kindOf(name) === "html" ? "html" : "other";

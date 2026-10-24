@@ -352,6 +352,8 @@ const SHORTCUTS: [string, [string, string][]][] = [
       ["Expandir Emmet", "Tab"],
       ["Envolver com Emmet", "Ctrl+Shift+A"],
       ["Inserir / trocar ícone", "Alt+I"],
+      ["Correções rápidas", "Ctrl+. (ou clique no sublinhado)"],
+      ["Próximo / anterior problema", "F8 / Shift+F8"],
     ],
   ],
 ];

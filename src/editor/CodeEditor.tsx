@@ -27,7 +27,13 @@ import {
 import { searchKeymap, highlightSelectionMatches, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, startCompletion } from "@codemirror/autocomplete";
 import { bracketMatching, foldGutter, foldKeymap, foldAll, unfoldAll, indentOnInput, indentUnit } from "@codemirror/language";
-import { lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
+import { lintGutter, lintKeymap, type Diagnostic } from "@codemirror/lint";
+import { json } from "@codemirror/lang-json";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { htmlLanguage } from "@codemirror/lang-html";
+import { cssLanguage } from "@codemirror/lang-css";
+import { jsonLanguage } from "@codemirror/lang-json";
+import { fixesAt, lintExtension, quickFix, requestRelint, setLintFile, showFixAt } from "./lint";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { javascript, javascriptLanguage, scopeCompletionSource } from "@codemirror/lang-javascript";
@@ -50,7 +56,7 @@ import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { poiesisHighlight, poiesisTheme, structuralTags } from "./theme";
 import { autoOpenCompletion, completionSources, langOfKind, setCompletionFile, langAt, type Lang } from "./completions";
 import { definitionExtensions, gotoTarget, openDefinition, symbolAt, type Sym } from "./definition";
-import type { Loc } from "@/lib/indexer";
+import { onIndex, type Loc } from "@/lib/indexer";
 import type { PFile, Settings } from "@/lib/types";
 
 export interface CursorInfo {
@@ -86,6 +92,7 @@ export type EditorAction =
   | "emmetDec";
 
 export interface MenuContext {
+  fixes: { message: string; severity: string; actions: string[] }[];
   icon: string | null;
   sym: Sym | null;
   hasTarget: boolean;
@@ -105,6 +112,10 @@ export interface EditorHandle {
   showDefinition(): void;
   gotoDefinition(): boolean;
   symbolAtCursor(): Sym | null;
+  /** aplica a correção j do diagnóstico i do último menu de contexto */
+  applyFix(i: number, j: number): void;
+  /** abre o cartão de correções no cursor */
+  showFixes(): boolean;
   /** linguagem no cursor (HTML embutido em <style>/<script> conta como css/js) */
   langAtCursor(): Lang;
   /** se o cursor está no nome de um ícone dentro de <span class="material-symbols-…"> */
@@ -135,9 +146,25 @@ const langFor = (file: PFile): Extension[] => {
     case "js":
       return [javascript(), javascriptLanguage.data.of({ autocomplete: scopeCompletionSource(globalThis) })];
     case "json":
-      return [javascript()];
+      return [json()];
     default:
-      return /\.svg$/i.test(file.name) ? [html()] : [];
+      if (/\.svg$/i.test(file.name)) return [html()];
+      if (/\.(md|markdown)$/i.test(file.name))
+        return [
+          markdown({
+            base: markdownLanguage,
+            codeLanguages: (info) => {
+              const l = info.toLowerCase();
+              if (/^(html?|xml|svg)$/.test(l)) return htmlLanguage;
+              if (/^(css|scss)$/.test(l)) return cssLanguage;
+              if (/^(js|javascript|mjs|ts|typescript|jsx)$/.test(l)) return javascriptLanguage;
+              if (l === "json") return jsonLanguage;
+              return null;
+            },
+          }),
+          EditorView.contentAttributes.of({ spellcheck: "true", lang: "pt-BR" }),
+        ];
+      return [EditorView.contentAttributes.of({ spellcheck: "true", lang: "pt-BR" })];
   }
 };
 
@@ -170,6 +197,17 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
   settingsRef.current = settings;
   const darkRef = useRef(dark);
   darkRef.current = dark;
+  const menuFixes = useRef<{ pos: number; list: ReturnType<typeof fixesAt> }>({ pos: 0, list: [] });
+  const errorRef = useRef(errorLine);
+  errorRef.current = errorLine;
+  const runtimeDiags = (state: EditorState): Diagnostic[] => {
+    const e = errorRef.current;
+    const f = fileRef.current;
+    if (!e || !f || e.fileId !== f.id || e.line > state.doc.lines) return [];
+    const l = state.doc.line(e.line);
+    const from = Math.min(l.from + Math.max(0, e.col - 1), l.to);
+    return [{ from: from === l.to ? l.from : from, to: l.to, severity: "error", message: e.message, source: "Preview (erro ao executar)" }];
+  };
 
   const comp = useRef({
     font: new Compartment(),
@@ -239,6 +277,8 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
           },
         }),
         lintGutter(),
+        lintExtension(() => (f.kind === "html" || /\.svg$/i.test(f.name) ? "html" : f.kind), runtimeDiags),
+        quickFix,
         highlightSpecialChars(),
         history(),
         drawSelection(),
@@ -281,6 +321,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
           ...historyKeymap,
           ...foldKeymap,
           ...completionKeymap,
+          ...lintKeymap,
           indentWithTab,
         ]),
         poiesisTheme,
@@ -319,6 +360,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
     const v = view.current;
     if (!v) return;
     setCompletionFile(file && file.kind !== "asset" ? file : null);
+    setLintFile(file && file.kind !== "asset" ? file : null);
     if (!file || file.kind === "asset") {
       if (current.current) states.current.set(current.current, v.state);
       current.current = null;
@@ -354,17 +396,21 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
     v.dispatch({ effects: reconfig(file) });
   }, [settings.fontSize, settings.wrap, settings.tabSize, settings.emmet, dark]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // erro em tempo de execução → sublinhado na linha
+  // o índice do projeto mudou (arquivos novos, ids, variáveis…) → verifica de novo
+  useEffect(() => {
+    const off = onIndex(() => {
+      const v = view.current;
+      if (v && curId.current) requestRelint(v);
+    });
+    return () => {
+      off();
+    };
+  }, []);
+
+  // erro em tempo de execução → entra junto com a verificação
   useEffect(() => {
     const v = view.current;
-    if (!v || !file) return;
-    const diags: Diagnostic[] = [];
-    if (errorLine && errorLine.fileId === file.id && errorLine.line <= v.state.doc.lines) {
-      const l = v.state.doc.line(errorLine.line);
-      const from = Math.min(l.from + Math.max(0, errorLine.col - 1), l.to);
-      diags.push({ from: from === l.to ? l.from : from, to: l.to, severity: "error", message: errorLine.message, source: "Preview" });
-    }
-    v.dispatch(setDiagnostics(v.state, diags));
+    if (v && file && file.kind !== "asset") requestRelint(v);
   }, [errorLine, file?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const transformCase = (fn: (s: string) => string) => {
@@ -405,7 +451,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
     contextAt: (x, y) => {
       const v = view.current;
       const lang = fileLang();
-      if (!v) return { sym: null, icon: null, hasTarget: false, selection: "", lang };
+      if (!v) return { sym: null, icon: null, fixes: [], hasTarget: false, selection: "", lang };
       const pos = v.posAtCoords({ x, y });
       if (pos != null) {
         const inSel = v.state.selection.ranges.some((r) => pos >= r.from && pos <= r.to && !r.empty);
@@ -415,7 +461,27 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
       const sym = symbolAt(v.state, head, lang);
       const r = v.state.selection.main;
       const icon = iconAt(v);
-      return { sym: icon ? null : sym, icon: icon?.name ?? null, hasTarget: !!(sym && gotoTarget(sym, fileRef.current)), selection: v.state.sliceDoc(r.from, r.to), lang: langAt(v.state, head, lang) };
+      const found = fixesAt(v.state, head);
+      menuFixes.current = { pos: head, list: found };
+      const fixes = found.map(({ d }) => ({ message: d.message, severity: d.severity, actions: (d.actions ?? []).map((a) => a.name) }));
+      return { fixes, sym: icon ? null : sym, icon: icon?.name ?? null, hasTarget: !!(sym && gotoTarget(sym, fileRef.current)), selection: v.state.sliceDoc(r.from, r.to), lang: langAt(v.state, head, lang) };
+    },
+    applyFix: (i, j) => {
+      const v = view.current;
+      const item = menuFixes.current.list[i];
+      const a = item?.d.actions?.[j];
+      if (!v || !item || !a) return;
+      a.apply(v, item.from, item.to);
+      v.focus();
+    },
+    showFixes: () => {
+      const v = view.current;
+      if (!v) return false;
+      const pos = v.state.selection.main.head;
+      if (!fixesAt(v.state, pos).length) return false;
+      showFixAt(v, pos);
+      v.focus();
+      return true;
     },
     langAtCursor: () => {
       const v = view.current;

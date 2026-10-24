@@ -36,6 +36,7 @@ import { Preview, type PreviewHandle } from "@/components/Preview";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { StatusBar } from "@/components/StatusBar";
 import { AssetView } from "@/components/AssetView";
+import { MarkdownView, isMarkdown } from "@/components/MarkdownView";
 import { SymbolPicker, type SymbolPick } from "@/components/SymbolPicker";
 import { hasSymbolsLink, linkTag, withSymbolsLink } from "@/lib/symbols";
 import { CommandPalette, ImportDialog, RenameDialog, SettingsDialog, ShortcutsDialog, type Cmd, type ImportMode } from "@/components/Dialogs";
@@ -53,6 +54,9 @@ const loadUi = () => {
 };
 
 const STARTERS: Record<string, string> = {
+  json: "{\n  \"nome\": \"valor\"\n}\n",
+  md: "# Título\n\nEscreva aqui. **Negrito**, *itálico*, [links](https://developer.mozilla.org) e listas:\n\n- um\n- dois\n",
+  txt: "",
   html: `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -107,6 +111,7 @@ export default function App() {
   const [palette, setPalette] = useState<"files" | "all" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [mdMode, setMdMode] = useState<"code" | "split" | "view">(() => (localStorage.getItem("poiesis:md-mode") as "code" | "split" | "view") || "split");
   const [symbolPicker, setSymbolPicker] = useState<{ lang: "html" | "css" | "js" | "other"; current: { from: number; to: number; name: string; style: string } | null } | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ sym: Sym; label: string; name: string; count: number } | null>(null);
   const [searchSeed, setSearchSeed] = useState<{ q: string; n: number } | null>(null);
@@ -335,7 +340,8 @@ export default function App() {
     if (taken(project).has(name.toLowerCase())) return void toast.error(`Já existe "${name}"`);
     const kind = kindOf(name);
     if (kind === "asset") return void toast.error("Para imagens e mídias, use “Adicionar arquivos”");
-    const f = makeFile(name, STARTERS[kind] ?? "");
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    const f = makeFile(name, STARTERS[ext] ?? STARTERS[kind] ?? "");
     updateProject((p) => ({ ...p, files: [...p.files, f], openTabs: [...p.openTabs, f.id], activeFile: f.id, entry: p.entry || (kind === "html" ? f.id : p.entry) }));
     if (kind === "html") setPreviewPage(f.id);
   };
@@ -642,10 +648,10 @@ export default function App() {
 
   /* ---------------- formatação ---------------- */
   const format = async () => {
-    if (!activeFile || !settings || !canFormat(activeFile.kind)) return;
+    if (!activeFile || !settings || !canFormat(activeFile.kind, activeFile.name)) return;
     setFormatting(true);
     try {
-      const out = await formatCode(activeFile.content, activeFile.kind, settings.tabSize);
+      const out = await formatCode(activeFile.content, activeFile.kind, settings.tabSize, activeFile.name);
       onChange(activeFile.id, out);
     } catch (e) {
       toast.error("Não deu pra formatar", { description: String((e as Error)?.message || e).split("\n")[0] });
@@ -957,7 +963,7 @@ export default function App() {
         tabs={tabs}
         activeId={project.activeFile}
         wrap={settings.wrap}
-        canFormat={!!activeFile && canFormat(activeFile.kind)}
+        canFormat={!!activeFile && canFormat(activeFile.kind, activeFile.name)}
         formatting={formatting}
         onOpen={openFile}
         onClose={closeTab}
@@ -965,12 +971,24 @@ export default function App() {
         onSearch={() => editor.current?.search()}
         onWrap={() => updateSettings({ wrap: !settings.wrap })}
         onIcon={() => openSymbols()}
+        md={
+          isMarkdown(activeFile)
+            ? {
+                mode: mdMode,
+                onMode: (m) => {
+                  setMdMode(m);
+                  localStorage.setItem("poiesis:md-mode", m);
+                },
+              }
+            : undefined
+        }
       />
       <div className="relative min-h-0 flex-1">
-        <div className={activeFile && activeFile.kind !== "asset" ? "h-full" : "hidden"}>
+        <div className={activeFile && activeFile.kind !== "asset" ? "flex h-full" : "hidden"}>
+         <div className={isMarkdown(activeFile) && mdMode === "view" ? "hidden" : "h-full min-w-0 flex-1"}>
           <EditorContextMenu
             editor={editor}
-            canFormat={!!activeFile && canFormat(activeFile.kind)}
+            canFormat={!!activeFile && canFormat(activeFile.kind, activeFile.name)}
             onFormat={format}
             onRename={(s) => askRename(s)}
             onHighlight={(sel) => {
@@ -995,6 +1013,12 @@ export default function App() {
               onToast={(m) => toast(m)}
             />
           </EditorContextMenu>
+         </div>
+         {isMarkdown(activeFile) && mdMode !== "code" && (
+           <div className={mdMode === "view" ? "h-full min-w-0 flex-1" : "h-full min-w-0 flex-1 border-l border-md-outline-v"} style={{ background: "var(--md-surface-container-lowest)" }}>
+             <MarkdownView file={activeFile!} files={project.files} onOpenFile={openFile} />
+           </div>
+         )}
         </div>
         {activeFile?.kind === "asset" && (
           <AssetView

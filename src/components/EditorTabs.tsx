@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { PFile } from "@/lib/types";
 import { Icon } from "./Icon";
-import { IconButton } from "./md";
+import { IconButton, Tip } from "./md";
 import { fileIcon } from "./fileIcon";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,8 @@ interface Props {
   onSearch(): void;
   onWrap(): void;
   onIcon(): void;
+  /** controles de visualização quando o arquivo ativo é Markdown */
+  md?: { mode: "code" | "split" | "view"; onMode(m: "code" | "split" | "view"): void };
 }
 
 /** Abas no estilo "primary tabs" do Material 3: indicador arredondado sob o rótulo ativo. */
@@ -83,6 +85,23 @@ export function EditorTabs(p: Props) {
         })}
       </div>
       <div className="flex shrink-0 items-center gap-0.5 px-1.5">
+        {p.md && (
+          <div className="md-seg mr-1 h-7">
+            {(
+              [
+                ["code", "code", "Só código"],
+                ["split", "vertical_split", "Código e visualização"],
+                ["view", "visibility", "Só visualização"],
+              ] as const
+            ).map(([m, icon, label]) => (
+              <Tip key={m} label={label}>
+                <button data-on={p.md!.mode === m} onClick={() => p.md!.onMode(m)} aria-label={label} className="!min-w-[30px] !px-1.5">
+                  <Icon name={icon} size={16} />
+                </button>
+              </Tip>
+            ))}
+          </div>
+        )}
         <IconButton icon="interests" label="Inserir ícone Material Symbols" shortcut="Alt+I" size="sm" onClick={p.onIcon} />
         <IconButton icon="search" label="Buscar e substituir" shortcut="Ctrl+F" size="sm" onClick={p.onSearch} />
         <IconButton icon="wrap_text" label="Quebra de linha" shortcut="Alt+Z" size="sm" on={p.wrap} onClick={p.onWrap} />

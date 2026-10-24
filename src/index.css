@@ -637,3 +637,108 @@
 }
 
 /* realce temporário de elementos no preview */
+
+/* =====================================================================
+   Cartão de correção rápida (clique num erro / Ctrl+.)
+   ===================================================================== */
+.pz-fix {
+  font-family: var(--font-ui);
+  min-width: 280px;
+  max-width: 440px;
+  padding: 6px;
+}
+.pz-fix-item {
+  padding: 8px 10px 6px;
+  border-radius: 10px;
+}
+.pz-fix-item + .pz-fix-item {
+  border-top: 1px solid var(--md-outline-variant);
+}
+.pz-fix-head {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--md-on-surface);
+}
+.pz-fix-sev {
+  font-size: 18px;
+  font-variation-settings: "FILL" 1;
+  margin-top: 1px;
+}
+.pz-fix-sev.error { color: var(--syn-invalid); }
+.pz-fix-sev.warning { color: var(--md-warn); }
+.pz-fix-sev.info, .pz-fix-sev.hint { color: var(--md-info); }
+.pz-fix-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 2px 26px;
+}
+.pz-fix-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-code);
+  border: 1px solid var(--md-outline);
+  color: var(--md-on-surface);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color .15s;
+}
+.pz-fix-btn .msr { font-size: 16px; }
+.pz-fix-btn:hover { background: color-mix(in oklab, var(--md-on-surface) 8%, transparent); }
+.pz-fix-btn.primary {
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  border-color: transparent;
+}
+.pz-fix-btn.primary:hover { filter: brightness(1.08); }
+.pz-fix-src {
+  margin: 4px 0 0 26px;
+  font-size: 10.5px;
+  color: var(--md-outline);
+}
+.pz-fix-foot {
+  padding: 6px 10px 2px;
+  font-size: 10.5px;
+  color: var(--md-outline);
+  text-align: right;
+}
+
+/* =====================================================================
+   Pré-visualização de Markdown
+   ===================================================================== */
+.pz-md {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--md-on-surface);
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 40px 80px;
+  user-select: text;
+}
+.pz-md h1, .pz-md h2, .pz-md h3, .pz-md h4 { line-height: 1.25; margin: 1.6em 0 .6em; font-weight: 700; }
+.pz-md h1 { font-family: var(--font-display); font-weight: 400; font-style: italic; font-size: 2.4em; margin-top: .4em; }
+.pz-md h2 { font-size: 1.5em; padding-bottom: .3em; border-bottom: 1px solid var(--md-outline-variant); }
+.pz-md h3 { font-size: 1.2em; }
+.pz-md p, .pz-md ul, .pz-md ol, .pz-md blockquote, .pz-md pre, .pz-md table { margin: 0 0 1em; }
+.pz-md a { color: var(--md-primary); text-underline-offset: 3px; }
+.pz-md code { font-family: var(--font-code); font-size: .86em; padding: .15em .4em; border-radius: 6px; background: var(--md-surface-container-high); }
+.pz-md pre { padding: 14px 16px; border-radius: 12px; background: var(--syn-bg); overflow: auto; }
+.pz-md pre code { padding: 0; background: none; color: var(--syn-fg); }
+.pz-md blockquote { padding: .2em 1em; border-left: 3px solid var(--md-primary); color: var(--md-on-surface-variant); background: var(--md-surface-container-low); border-radius: 0 10px 10px 0; }
+.pz-md img { max-width: 100%; border-radius: 10px; }
+.pz-md hr { border: 0; height: 1px; background: var(--md-outline-variant); margin: 2em 0; }
+.pz-md table { border-collapse: collapse; width: 100%; font-size: .92em; }
+.pz-md th, .pz-md td { border: 1px solid var(--md-outline-variant); padding: 6px 10px; text-align: left; }
+.pz-md th { background: var(--md-surface-container); }
+.pz-md li::marker { color: var(--md-primary); }
+.pz-md input[type="checkbox"] { accent-color: var(--md-primary); margin-right: .4em; }

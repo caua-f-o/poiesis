@@ -57,6 +57,30 @@ export function EditorContextMenu({ editor, canFormat, children, onFormat, onRen
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-[330px]">
+        {!!ctx?.fixes.length && (
+          <>
+            {ctx.fixes.map((f, i) => (
+              <div key={i}>
+                <ContextMenuLabel className="flex max-w-[318px] items-start gap-2 whitespace-normal pb-1.5 font-sans text-[12px] normal-case leading-snug tracking-normal text-md-on-surface">
+                  <Icon
+                    name={f.severity === "error" ? "error" : f.severity === "warning" ? "warning" : "info"}
+                    size={16}
+                    fill
+                    className={f.severity === "error" ? "mt-px text-[var(--syn-invalid)]" : f.severity === "warning" ? "mt-px text-md-warn" : "mt-px text-md-info"}
+                  />
+                  <span className="line-clamp-3">{f.message}</span>
+                </ContextMenuLabel>
+                {f.actions.map((a, j) => (
+                  <ContextMenuItem key={j} onSelect={() => setTimeout(() => editor.current?.applyFix(i, j), 0)} className="font-code text-[12.5px]">
+                    <Icon name={j === 0 ? "auto_fix_high" : "swap_horiz"} size={19} className={j === 0 ? "!text-md-primary" : ""} /> {a}
+                    {j === 0 && i === 0 && <ContextMenuShortcut>Ctrl+.</ContextMenuShortcut>}
+                  </ContextMenuItem>
+                ))}
+              </div>
+            ))}
+            <ContextMenuSeparator />
+          </>
+        )}
         {s && (
           <>
             <ContextMenuLabel className="truncate font-code normal-case tracking-normal text-md-primary">{symLabel(s)}</ContextMenuLabel>

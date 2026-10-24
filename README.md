@@ -28,6 +28,8 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - **Ir para definição** (`F12` / `Ctrl+clique`) e **renomear em todo o projeto** (`F2`) classes, ids, variáveis CSS e keyframes.
 - **Seletor de ícones Material Symbols** (`Alt+I`, menu de contexto ou botão na barra de abas): 3.932 ícones com prévia offline, busca em português ou inglês ("casa", "lixeira", "seta"…), estilos Outlined/Rounded/Sharp, preenchimento, peso e tamanho. Insere o `<span>` (ou só o nome, ou o CSS) e adiciona o `<link>` da fonte no `<head>` se faltar. Com o cursor num ícone existente, troca o ícone.
 - **Autocompletar ainda mais amplo**: ao digitar `<img`, `<link`, `<script`, `<a`, `<video`, `<audio`, `<iframe` ele já oferece a tag pronta com cada arquivo do projeto (com miniatura das imagens); a lista abre sozinha ao cair em `src=""`/`href=""`/`url()`; propriedades e valores dentro de `style=""`; nomes de ícones dentro de `<span class="material-symbols-…">`; atributos `data-*` do projeto (HTML, `[data-…]` no CSS e `dataset.` no JS); chaves do `localStorage`; fontes do projeto em `font-family`; tags em `createElement`; propriedades em camelCase em `.style.`; arquivos em `.src =`, `new Image/Audio/Worker()` e `@import`; valores sugeridos para `rel`, `target`, `loading`, `meta name/content`, `role`, `autocomplete`…
+- **Verificação ao vivo com correção rápida**: tags inexistentes (`<dvi>` → `<div>`), atributos (`hreff` → `href`), propriedades CSS (`colr` → `color`), valores (`display: flx` → `flex`), `var(--…)` não definidas, pseudo-classes, fechamentos trocados ou faltando, ids duplicados, `<img>` sem `alt`, caminhos de arquivos que não existem (ou que só funcionam por sorte), métodos e globais de JS digitados errado (`document.querySelecter`, `consle`), `getElementById`/`querySelector` com id ou classe que não existe no projeto, erros de sintaxe e JSON inválido. Sublinhado vermelho (erro), amarelo (aviso) ou pontilhado (dica); **clique no trecho** (ou `Ctrl+.`) para ver as sugestões e aplicar com um clique — também aparecem no topo do menu de contexto. `F8` vai para o próximo problema.
+- **JSON, Markdown e texto**: JSON com realce, validação (mensagens em português, correção de vírgula sobrando e aspas simples) e formatação; Markdown com realce (inclusive blocos de código HTML/CSS/JS/JSON), formatação e pré-visualização ao lado, só código ou só visualização — imagens e links do projeto funcionam; `.txt` e `.md` com corretor ortográfico do navegador.
 - **Menu de contexto** com definição, ir para definição, renomear, mostrar o elemento no preview, recortar/copiar/colar, comentar, formatar, operações de linha, maiúsculas/minúsculas, dobrar/desdobrar, ações do Emmet e busca no projeto.
 
 **Projeto**
@@ -49,6 +51,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 | Definição / ir para definição | `Alt+F1` / `F12` |
 | Renomear no projeto | `F2` |
 | Inserir / trocar ícone | `Alt+I` |
+| Correções rápidas / próximo problema | `Ctrl+.` / `F8` |
 | Importar arquivos | `Ctrl+O` |
 | Formatar | `Shift+Alt+F` |
 | Buscar / substituir | `Ctrl+F` / `Ctrl+H` |

@@ -1,6 +1,7 @@
 /** Símbolo sob o cursor → definição (o que é / para que serve), referências no projeto e "ir para definição". */
 import { StateEffect, StateField, type EditorState } from "@codemirror/state";
 import { EditorView, hoverTooltip, showTooltip, keymap, type Tooltip } from "@codemirror/view";
+import { forEachDiagnostic } from "@codemirror/lint";
 import { syntaxTree } from "@codemirror/language";
 import { getIndex, type Loc } from "@/lib/indexer";
 import { dirName, findFile } from "@/lib/files";
@@ -328,6 +329,12 @@ export function definitionExtensions(h: DefHandlers) {
   const hover = hoverTooltip(
     (view, pos) => {
       if (!h.hover()) return null;
+      // sobre um erro/aviso, quem fala é a verificação (com a sugestão de correção)
+      let flagged = false;
+      forEachDiagnostic(view.state, (_d, from, to) => {
+        if (pos >= from && pos <= to) flagged = true;
+      });
+      if (flagged) return null;
       const s = symbolAt(view.state, pos, h.lang());
       if (!s || s.kind === "value") return null;
       if (view.state.field(field)) return null;

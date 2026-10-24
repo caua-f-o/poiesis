@@ -1,6 +1,6 @@
 import type { FileKind } from "./types";
 
-export async function formatCode(code: string, kind: FileKind, tabWidth: number): Promise<string> {
+export async function formatCode(code: string, kind: FileKind, tabWidth: number, name = ""): Promise<string> {
   const prettier = await import("prettier/standalone");
   const base = { tabWidth, printWidth: 100, useTabs: false };
   switch (kind) {
@@ -23,8 +23,13 @@ export async function formatCode(code: string, kind: FileKind, tabWidth: number)
       return prettier.format(code, { ...base, parser: kind === "json" ? "json" : "babel", plugins: [babel, estree] });
     }
     default:
+      if (/\.(md|markdown)$/i.test(name)) {
+        const md = await import("prettier/plugins/markdown");
+        return prettier.format(code, { ...base, parser: "markdown", plugins: [md], proseWrap: "preserve" });
+      }
       return code;
   }
 }
 
-export const canFormat = (kind: FileKind) => kind === "html" || kind === "css" || kind === "js" || kind === "json";
+export const canFormat = (kind: FileKind, name = "") =>
+  kind === "html" || kind === "css" || kind === "js" || kind === "json" || /\.(md|markdown)$/i.test(name);
