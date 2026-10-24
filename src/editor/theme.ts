@@ -1,156 +1,254 @@
-import { EditorView } from "@codemirror/view";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { EditorView, Decoration, ViewPlugin, type DecorationSet, type ViewUpdate } from "@codemirror/view";
+import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/language";
+import { RangeSetBuilder } from "@codemirror/state";
 import { tags as t } from "@lezer/highlight";
 
-/** Paleta "Tinta & Ouro": inspirada no realce do VS Code, afinada para fundo de nanquim. */
-export const C = {
-  bg: "#121215",
-  gutter: "#121215",
-  line: "#1a1a1f",
-  sel: "#3a3226",
-  selMatch: "#2c2a24",
-  cursor: "#f0cf8c",
-  fg: "#e6e1d6",
-  dim: "#5f5c56",
-  dim2: "#86827a",
-  keyword: "#e3a868",
-  control: "#e98fb0",
-  tag: "#ef8b7a",
-  attr: "#e9cb8e",
-  string: "#a9d18e",
-  prop: "#8cc7ec",
-  value: "#c9a3ee",
-  number: "#d6a7f2",
-  fn: "#74cfd9",
-  def: "#f2d394",
-  type: "#7fd8b8",
-  comment: "#6a675f",
-  op: "#a19c92",
-  punct: "#8a867d",
-  regexp: "#ef8b7a",
-  escape: "#8cc7ec",
-  meta: "#8a867d",
-  invalid: "#ff6b6b",
-};
+/** Todas as cores vêm de variáveis CSS (--syn-*), então trocar de tema é só trocar variáveis. */
+const v = (name: string) => `var(--syn-${name})`;
 
-export const poiesisTheme = EditorView.theme(
-  {
-    "&": { color: C.fg, backgroundColor: C.bg, height: "100%" },
-    ".cm-scroller": { fontFamily: "var(--font-code)", lineHeight: "1.65", overflow: "auto" },
-    ".cm-content": { caretColor: C.cursor, padding: "10px 0 40vh" },
-    ".cm-cursor, .cm-dropCursor": { borderLeftColor: C.cursor, borderLeftWidth: "2px" },
-    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
-      { backgroundColor: C.sel + " !important" },
-    ".cm-activeLine": { backgroundColor: C.line },
-    ".cm-selectionMatch": { backgroundColor: C.selMatch, outline: "1px solid #4a4436" },
-    "&.cm-focused .cm-matchingBracket": { backgroundColor: "#3b3528", outline: "1px solid #6e5f3f", color: "inherit" },
-    "&.cm-focused .cm-nonmatchingBracket": { outline: "1px solid " + C.invalid },
-    ".cm-gutters": { backgroundColor: C.gutter, color: C.dim, border: "none", paddingRight: "6px" },
-    ".cm-lineNumbers .cm-gutterElement": { padding: "0 10px 0 14px", minWidth: "44px", fontVariantNumeric: "tabular-nums" },
-    ".cm-activeLineGutter": { backgroundColor: "transparent", color: C.cursor },
-    ".cm-foldGutter .cm-gutterElement": { color: C.dim, cursor: "pointer", transition: "color .15s" },
-    ".cm-foldGutter .cm-gutterElement:hover": { color: C.fg },
-    ".cm-foldPlaceholder": { backgroundColor: "#24231f", border: "1px solid #3a372f", color: C.dim2, padding: "0 6px", borderRadius: "4px" },
-    ".cm-tooltip": {
-      backgroundColor: "#1b1b20",
-      border: "1px solid #2e2d33",
-      borderRadius: "8px",
-      boxShadow: "0 12px 32px -8px rgba(0,0,0,.6)",
-      overflow: "hidden",
-    },
-    ".cm-tooltip.cm-tooltip-autocomplete > ul": { fontFamily: "var(--font-code)", fontSize: "12.5px", maxHeight: "260px" },
-    ".cm-tooltip.cm-tooltip-autocomplete > ul > li": { padding: "3px 10px 3px 6px", lineHeight: "1.5" },
-    ".cm-tooltip-autocomplete ul li[aria-selected]": { backgroundColor: "#3a3226", color: C.fg },
-    ".cm-completionLabel": { color: C.fg },
-    ".cm-completionMatchedText": { textDecoration: "none", color: C.cursor, fontWeight: "600" },
-    ".cm-completionDetail": { color: C.dim2, fontStyle: "normal", marginLeft: "10px" },
-    ".cm-completionIcon": { opacity: ".8", width: "1.2em", paddingRight: "8px" },
-    ".cm-completionInfo": { padding: "6px 10px", fontSize: "12px", color: C.dim2 },
-    ".cm-panels": { backgroundColor: "#16161a", color: C.fg },
-    ".cm-panels.cm-panels-top": { borderBottom: "1px solid #26262c" },
-    ".cm-panels.cm-panels-bottom": { borderTop: "1px solid #26262c" },
-    ".cm-search": { padding: "8px 10px", fontFamily: "var(--font-ui)", fontSize: "12px", display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" },
-    ".cm-search label": { display: "inline-flex", alignItems: "center", gap: "4px", color: C.dim2 },
-    ".cm-textfield": {
-      backgroundColor: "#0e0e11",
-      border: "1px solid #2e2d33",
-      borderRadius: "6px",
-      color: C.fg,
-      padding: "4px 8px",
-      fontFamily: "var(--font-code)",
-      fontSize: "12px",
-      outline: "none",
-    },
-    ".cm-textfield:focus": { borderColor: "#d9b26f" },
-    ".cm-button": {
-      backgroundImage: "none",
-      backgroundColor: "#24242a",
-      border: "1px solid #2e2d33",
-      borderRadius: "6px",
-      color: C.fg,
-      padding: "3px 10px",
-      fontFamily: "var(--font-ui)",
-      textTransform: "lowercase",
-      cursor: "pointer",
-    },
-    ".cm-button:hover": { backgroundColor: "#2d2d34" },
-    ".cm-panel.cm-search [name=close]": { color: C.dim2, fontSize: "18px", right: "8px", top: "4px" },
-    ".cm-searchMatch": { backgroundColor: "#5a4a2c66", outline: "1px solid #8a7044" },
-    ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "#8a704488" },
-    ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy " + C.invalid, textUnderlineOffset: "3px" },
-    ".cm-diagnostic-error": { borderLeft: "3px solid " + C.invalid, padding: "6px 10px" },
-    ".cm-gutter-lint": { width: "12px" },
-    ".cm-lint-marker-error": { content: "none" },
-    ".emmet-abbreviation": { textDecoration: "underline dotted " + C.cursor, textUnderlineOffset: "3px" },
-    ".emmet-preview": {
-      fontFamily: "var(--font-code)",
-      fontSize: "12px",
-      padding: "8px 10px",
-      whiteSpace: "pre",
-      color: C.fg,
-    },
-    ".cm-css-color-picker-wrapper": { outline: "1px solid #3a3a40", borderRadius: "3px", marginRight: "4px", verticalAlign: "middle" },
+export const poiesisTheme = EditorView.theme({
+  "&": { color: v("fg"), backgroundColor: v("bg"), height: "100%" },
+  ".cm-scroller": { fontFamily: "var(--font-code)", lineHeight: "1.65", overflow: "auto" },
+  ".cm-content": { caretColor: v("cursor"), padding: "10px 0 40vh" },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: v("cursor"), borderLeftWidth: "2px" },
+
+  /* Seleção: a camada de seleção fica ATRÁS do texto, então nada por cima dela pode ser opaco.
+     A linha ativa usa cor translúcida e a seleção tem contraste próprio com e sem foco. */
+  ".cm-selectionBackground": { backgroundColor: v("selection-blur") + " !important" },
+  "&.cm-focused .cm-selectionBackground": { backgroundColor: v("selection") + " !important" },
+  ".cm-content ::selection": { backgroundColor: "transparent !important" },
+  ".cm-selectionLayer": { zIndex: "0 !important" },
+  ".cm-activeLine": { backgroundColor: v("active-line") },
+  ".cm-selectionMatch": {
+    backgroundColor: "color-mix(in oklab, var(--syn-selection) 45%, transparent)",
+    borderRadius: "2px",
   },
-  { dark: true }
-);
+  "&.cm-focused .cm-matchingBracket": {
+    backgroundColor: "color-mix(in oklab, var(--syn-cursor) 18%, transparent)",
+    outline: "1px solid color-mix(in oklab, var(--syn-cursor) 55%, transparent)",
+    color: "inherit",
+  },
+  "&.cm-focused .cm-nonmatchingBracket": { outline: "1px solid " + v("invalid") },
+
+  ".cm-gutters": { backgroundColor: v("bg"), color: v("gutter"), border: "none", paddingRight: "6px" },
+  ".cm-lineNumbers .cm-gutterElement": { padding: "0 10px 0 14px", minWidth: "44px", fontVariantNumeric: "tabular-nums" },
+  ".cm-activeLineGutter": { backgroundColor: "transparent", color: v("cursor") },
+  ".cm-foldGutter .cm-gutterElement": { color: v("gutter"), cursor: "pointer" },
+  ".cm-foldGutter .cm-gutterElement:hover": { color: v("fg") },
+  ".cm-foldPlaceholder": {
+    backgroundColor: "var(--md-surface-container-high)",
+    border: "none",
+    color: "var(--md-on-surface-variant)",
+    padding: "0 8px",
+    borderRadius: "999px",
+  },
+
+  ".cm-tooltip": {
+    backgroundColor: "var(--md-surface-container)",
+    color: "var(--md-on-surface)",
+    border: "none",
+    borderRadius: "12px",
+    boxShadow: "var(--md-elev-2)",
+    overflow: "hidden",
+  },
+  ".cm-tooltip.cm-tooltip-autocomplete": { overflow: "visible" },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul": { borderRadius: "12px", fontFamily: "var(--font-code)", fontSize: "12.5px", maxHeight: "300px", padding: "4px" },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul > li": { padding: "3px 10px 3px 6px", lineHeight: "1.55", borderRadius: "8px" },
+  ".cm-tooltip-autocomplete ul li[aria-selected]": { backgroundColor: "var(--md-secondary-container)", color: "var(--md-on-secondary-container)" },
+  ".cm-completionLabel": { color: "inherit" },
+  ".cm-completionMatchedText": { textDecoration: "none", color: "var(--md-primary)", fontWeight: "700" },
+  ".cm-completionDetail": { color: "var(--md-on-surface-variant)", fontStyle: "normal", marginLeft: "12px", fontFamily: "var(--font-ui)", fontSize: "11px" },
+  ".cm-completionIcon": { opacity: ".85", width: "1.3em", paddingRight: "8px" },
+  ".cm-tooltip.cm-completionInfo": {
+    padding: "0",
+    maxWidth: "380px",
+    fontFamily: "var(--font-ui)",
+    marginLeft: "6px",
+    marginTop: "0",
+  },
+
+  ".cm-panels": { backgroundColor: "var(--md-surface-container)", color: "var(--md-on-surface)" },
+  ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--md-outline-variant)" },
+  ".cm-panels.cm-panels-bottom": { borderTop: "1px solid var(--md-outline-variant)" },
+  ".cm-search": { padding: "10px 12px", fontFamily: "var(--font-ui)", fontSize: "12px", display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" },
+  ".cm-search label": { display: "inline-flex", alignItems: "center", gap: "4px", color: "var(--md-on-surface-variant)" },
+  ".cm-search br": { flexBasis: "100%", height: 0 },
+  ".cm-textfield": {
+    backgroundColor: "transparent",
+    border: "1px solid var(--md-outline)",
+    borderRadius: "8px",
+    color: "var(--md-on-surface)",
+    padding: "5px 10px",
+    fontFamily: "var(--font-code)",
+    fontSize: "12px",
+    outline: "none",
+  },
+  ".cm-textfield:focus": { borderColor: "var(--md-primary)", boxShadow: "inset 0 0 0 1px var(--md-primary)" },
+  ".cm-button": {
+    backgroundImage: "none",
+    backgroundColor: "var(--md-secondary-container)",
+    color: "var(--md-on-secondary-container)",
+    border: "none",
+    borderRadius: "999px",
+    padding: "4px 12px",
+    fontFamily: "var(--font-ui)",
+    fontWeight: "550",
+    cursor: "pointer",
+  },
+  ".cm-button:hover": { filter: "brightness(1.12)" },
+  ".cm-panel.cm-search [name=close]": { color: "var(--md-on-surface-variant)", fontSize: "18px", right: "10px", top: "6px" },
+  ".cm-searchMatch": { backgroundColor: "color-mix(in oklab, var(--md-warn) 25%, transparent)", outline: "1px solid color-mix(in oklab, var(--md-warn) 55%, transparent)", borderRadius: "2px" },
+  ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "color-mix(in oklab, var(--md-warn) 50%, transparent)" },
+
+  ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy " + v("invalid"), textUnderlineOffset: "3px" },
+  ".cm-diagnostic-error": { borderLeft: "3px solid " + v("invalid"), padding: "8px 12px" },
+  ".cm-gutter-lint": { width: "12px" },
+  ".cm-lint-marker-error": { content: "none" },
+
+  ".emmet-abbreviation": { textDecoration: "underline dotted " + v("cursor"), textUnderlineOffset: "3px" },
+  ".emmet-preview": { fontFamily: "var(--font-code)", fontSize: "12px", padding: "8px 12px", whiteSpace: "pre", color: v("fg") },
+  ".cm-css-color-picker-wrapper": { outline: "1px solid var(--md-outline-variant)", borderRadius: "3px", marginRight: "4px", verticalAlign: "middle" },
+  ".cm-def-link": { textDecoration: "underline", textUnderlineOffset: "3px", cursor: "pointer", textDecorationColor: v("cursor") },
+});
 
 const style = HighlightStyle.define([
-  { tag: t.comment, color: C.comment, fontStyle: "italic" },
-  { tag: [t.keyword, t.modifier, t.operatorKeyword], color: C.keyword },
-  { tag: [t.controlKeyword, t.moduleKeyword], color: C.control },
-  { tag: [t.definitionKeyword], color: C.keyword },
-  { tag: [t.tagName], color: C.tag },
-  { tag: [t.angleBracket], color: C.punct },
-  { tag: [t.attributeName], color: C.attr },
-  { tag: [t.attributeValue], color: C.string },
-  { tag: [t.string, t.special(t.string)], color: C.string },
-  { tag: [t.regexp], color: C.regexp },
-  { tag: [t.escape], color: C.escape },
-  { tag: [t.number, t.integer, t.float], color: C.number },
-  { tag: [t.unit], color: C.number },
-  { tag: [t.bool, t.null, t.atom], color: C.keyword },
-  { tag: [t.self], color: C.control, fontStyle: "italic" },
-  { tag: [t.propertyName], color: C.prop },
-  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: C.fn },
-  { tag: [t.definition(t.variableName)], color: C.fg },
-  { tag: [t.function(t.definition(t.variableName)), t.definition(t.function(t.variableName))], color: C.def },
-  { tag: [t.definition(t.propertyName)], color: C.prop },
-  { tag: [t.className, t.typeName, t.namespace], color: C.type },
-  { tag: [t.variableName], color: C.fg },
-  { tag: [t.special(t.variableName)], color: C.value },
-  { tag: [t.labelName], color: C.def },
-  { tag: [t.operator, t.derefOperator], color: C.op },
-  { tag: [t.punctuation, t.separator, t.bracket, t.paren, t.brace, t.squareBracket], color: C.punct },
-  { tag: [t.meta, t.documentMeta, t.processingInstruction], color: C.meta },
-  { tag: [t.color], color: C.value },
-  { tag: [t.constant(t.name), t.standard(t.name)], color: C.value },
-  { tag: [t.heading], color: C.def, fontWeight: "600" },
-  { tag: [t.link, t.url], color: C.fn, textDecoration: "underline" },
+  { tag: t.comment, color: v("comment"), fontStyle: "italic" },
+  { tag: [t.keyword, t.modifier, t.operatorKeyword, t.definitionKeyword], color: v("keyword") },
+  { tag: [t.controlKeyword, t.moduleKeyword], color: v("control") },
+  { tag: [t.tagName], color: v("tag") },
+  { tag: [t.angleBracket], color: v("punct") },
+  { tag: [t.attributeName], color: v("attr") },
+  { tag: [t.attributeValue], color: v("string") },
+  { tag: [t.string, t.special(t.string)], color: v("string") },
+  { tag: [t.regexp], color: v("regexp") },
+  { tag: [t.escape], color: v("escape") },
+  { tag: [t.number, t.integer, t.float, t.unit], color: v("number") },
+  { tag: [t.bool, t.null, t.atom], color: v("keyword") },
+  { tag: [t.self], color: v("control"), fontStyle: "italic" },
+  { tag: [t.propertyName], color: v("prop") },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: v("fn") },
+  { tag: [t.definition(t.variableName)], color: v("variable") },
+  { tag: [t.function(t.definition(t.variableName)), t.definition(t.function(t.variableName))], color: v("def") },
+  { tag: [t.definition(t.propertyName)], color: v("prop") },
+  { tag: [t.className, t.typeName, t.namespace], color: v("type") },
+  { tag: [t.variableName], color: v("variable") },
+  { tag: [t.special(t.variableName)], color: v("value") },
+  { tag: [t.labelName], color: v("def") },
+  { tag: [t.operator, t.derefOperator], color: v("op") },
+  { tag: [t.punctuation, t.separator, t.bracket, t.paren, t.brace, t.squareBracket], color: v("punct") },
+  { tag: [t.meta, t.documentMeta, t.processingInstruction], color: v("meta") },
+  { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: v("value") },
+  { tag: [t.heading], color: v("def"), fontWeight: "600" },
+  { tag: [t.link, t.url], color: v("fn"), textDecoration: "underline" },
   { tag: [t.emphasis], fontStyle: "italic" },
   { tag: [t.strong], fontWeight: "700" },
-  { tag: [t.invalid], color: C.invalid },
-  // CSS
-  { tag: [t.special(t.tagName)], color: C.tag },
+  { tag: [t.invalid], color: v("invalid") },
 ]);
 
 export const poiesisHighlight = syntaxHighlighting(style);
+
+/* ---------------- categorias de tags ---------------- */
+
+const DOC = new Set(["html", "head", "body", "!doctype"]);
+const META = new Set(["meta", "link", "title", "style", "script", "base", "noscript", "template"]);
+const SECTION = new Set(["header", "nav", "main", "section", "article", "aside", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "address", "search"]);
+
+export function tagCategory(name: string): "doc" | "meta" | "section" | "custom" | null {
+  const n = name.toLowerCase();
+  if (DOC.has(n)) return "doc";
+  if (META.has(n)) return "meta";
+  if (SECTION.has(n)) return "section";
+  if (n.includes("-")) return "custom";
+  return null;
+}
+
+const marks = {
+  doc: Decoration.mark({ class: "cm-tag-doc" }),
+  docPunct: Decoration.mark({ class: "cm-tag-doc-punct" }),
+  meta: Decoration.mark({ class: "cm-tag-meta" }),
+  section: Decoration.mark({ class: "cm-tag-section" }),
+  custom: Decoration.mark({ class: "cm-tag-custom" }),
+};
+const lineMarks = {
+  head: Decoration.line({ class: "cm-head-region" }),
+  body: Decoration.line({ class: "cm-body-region" }),
+  doc: Decoration.line({ class: "cm-doc-region" }),
+};
+
+function buildTagDecos(view: EditorView): DecorationSet {
+  const tree = syntaxTree(view.state);
+  const doc = view.state.doc;
+  const ranges: { from: number; to: number; deco: Decoration }[] = [];
+  let headFrom = -1,
+    headTo = -1,
+    bodyFrom = -1,
+    bodyTo = -1;
+
+  tree.iterate({
+    enter: (node) => {
+      // HTML: <html>, <head>, <body>… / CSS: seletores de tipo
+      if (node.name === "TagName") {
+        const name = doc.sliceString(node.from, node.to);
+        const cat = tagCategory(name);
+        if (!cat) return;
+        ranges.push({ from: node.from, to: node.to, deco: marks[cat] });
+        const parent = node.node.parent;
+        if (cat === "doc" && parent && /Tag$/.test(parent.name)) {
+          // pinta também os "<", "</" e ">" das tags estruturais
+          for (let c = parent.firstChild; c; c = c.nextSibling) {
+            if (/^(StartTag|StartCloseTag|EndTag|SelfCloseEndTag)$/.test(c.name)) ranges.push({ from: c.from, to: c.to, deco: marks.docPunct });
+          }
+          const lower = name.toLowerCase();
+          const elem = parent.parent;
+          if (elem && elem.name === "Element" && parent.name === "OpenTag") {
+            if (lower === "head") (headFrom = elem.from), (headTo = elem.to);
+            if (lower === "body") (bodyFrom = elem.from), (bodyTo = elem.to);
+          }
+        }
+      } else if (node.name === "DoctypeDecl") {
+        ranges.push({ from: node.from, to: node.to, deco: marks.doc });
+      }
+    },
+  });
+
+  ranges.sort((a, b) => a.from - b.from || a.to - b.to);
+  const lines: { pos: number; deco: Decoration }[] = [];
+  const addRegion = (from: number, to: number, deco: Decoration) => {
+    if (from < 0) return;
+    const a = doc.lineAt(from).number;
+    const b = doc.lineAt(Math.min(to, doc.length)).number;
+    for (let l = a; l <= b; l++) lines.push({ pos: doc.line(l).from, deco });
+  };
+  addRegion(headFrom, headTo, lineMarks.head);
+  addRegion(bodyFrom, bodyTo, lineMarks.body);
+
+  // RangeSetBuilder exige ordem; linhas (from=to) e marcas misturadas
+  const all = [
+    ...lines.map((l) => ({ from: l.pos, to: l.pos, deco: l.deco, line: true })),
+    ...ranges.map((r) => ({ ...r, line: false })),
+  ].sort((a, b) => a.from - b.from || (a.line === b.line ? a.to - b.to : a.line ? -1 : 1));
+  const builder = new RangeSetBuilder<Decoration>();
+  let lastLine = -1;
+  for (const r of all) {
+    if (r.line) {
+      if (r.from === lastLine) continue;
+      lastLine = r.from;
+    }
+    builder.add(r.from, r.to, r.deco);
+  }
+  return builder.finish();
+}
+
+/** Diferencia <html>/<head>/<body>, metadados, seções e componentes customizados. */
+export const structuralTags = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = buildTagDecos(view);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || syntaxTree(u.startState) !== syntaxTree(u.state)) this.decorations = buildTagDecos(u.view);
+    }
+  },
+  { decorations: (p) => p.decorations }
+);

@@ -1,22 +1,45 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { zipSync } from "fflate";
-import type { Device, Layout, LogEntry, PFile, Project, Settings, Workspace } from "@/lib/types";
+import type { Device, Layout, LogEntry, Panel, PFile, Project, Settings, Workspace } from "@/lib/types";
 import { loadWorkspace, newProject, saveWorkspace, isExtension, openPopout, pushPopout, freshWorkspace } from "@/lib/store";
 import { buildPage } from "@/lib/build";
-import { baseName, collectDrop, dataURLToBytes, download, findFile, fromInput, kindOf, makeFile, mimeOf, readIncoming, rootFolderName, uid, type Incoming } from "@/lib/files";
+import {
+  baseName,
+  collectDrop,
+  dataURLToBytes,
+  download,
+  findFile,
+  fromInput,
+  kindOf,
+  makeFile,
+  mimeOf,
+  readIncoming,
+  rootFolderName,
+  uid,
+  type Incoming,
+} from "@/lib/files";
 import { canFormat, formatCode } from "@/lib/format";
+import { applyTheme, themeById } from "@/lib/themes";
+import { buildIndex, setIndex, type Loc } from "@/lib/indexer";
 import { CodeEditor, type CursorInfo, type EditorHandle } from "@/editor/CodeEditor";
+import type { Sym } from "@/editor/definition";
 import { Split } from "@/components/Split";
-import { TopBar } from "@/components/TopBar";
-import { Explorer } from "@/components/Explorer";
+import { NavRail } from "@/components/NavRail";
+import { TopAppBar } from "@/components/TopAppBar";
+import { Explorer, allFolders } from "@/components/Explorer";
+import { SearchPanel } from "@/components/SearchPanel";
+import { ProjectsPanel, ThemesPanel } from "@/components/SidePanels";
 import { EditorTabs } from "@/components/EditorTabs";
+import { EditorContextMenu, symLabel } from "@/components/EditorContextMenu";
 import { Preview, type PreviewHandle } from "@/components/Preview";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { StatusBar } from "@/components/StatusBar";
 import { AssetView } from "@/components/AssetView";
-import { CommandPalette, ImportDialog, SettingsDialog, type Cmd } from "@/components/Dialogs";
+import { CommandPalette, ImportDialog, RenameDialog, SettingsDialog, ShortcutsDialog, type Cmd, type ImportMode } from "@/components/Dialogs";
 import { Icon, Logo } from "@/components/Icon";
+import { installRipple } from "@/components/md";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const UI_KEY = "poiesis:ui";
 const loadUi = () => {
@@ -51,6 +74,20 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "") || "projeto";
 
+/** "style.css" → "style-2.css" até não colidir */
+function uniqueName(name: string, taken: Set<string>) {
+  if (!taken.has(name.toLowerCase())) return name;
+  const dot = name.lastIndexOf(".");
+  const slash = name.lastIndexOf("/");
+  const hasExt = dot > slash + 1;
+  const stem = hasExt ? name.slice(0, dot) : name;
+  const ext = hasExt ? name.slice(dot) : "";
+  for (let n = 2; ; n++) {
+    const c = `${stem}-${n}${ext}`;
+    if (!taken.has(c.toLowerCase())) return c;
+  }
+}
+
 let logSeq = 0;
 
 export default function App() {
@@ -67,6 +104,9 @@ export default function App() {
   const [pendingImport, setPendingImport] = useState<{ files: PFile[]; name: string } | null>(null);
   const [palette, setPalette] = useState<"files" | "all" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{ sym: Sym; label: string; name: string; count: number } | null>(null);
+  const [searchSeed, setSearchSeed] = useState<{ q: string; n: number } | null>(null);
   const [formatting, setFormatting] = useState(false);
   const [popout, setPopout] = useState(false);
   const [ui, setUi] = useState(loadUi);
@@ -77,8 +117,12 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const backupInput = useRef<HTMLInputElement>(null);
+  /** pasta de destino quando a importação vem de "Adicionar aqui" (pula o diálogo) */
+  const importDir = useRef<string | null>(null);
   const wsRef = useRef(ws);
   wsRef.current = ws;
+
+  useEffect(() => installRipple(), []);
 
   /* ---------------- carregar / salvar ---------------- */
   useEffect(() => {
@@ -105,6 +149,18 @@ export default function App() {
 
   const project: Project | null = ws ? ws.projects[ws.currentId] : null;
   const settings: Settings | null = ws?.settings ?? null;
+  const theme = themeById(settings?.theme ?? "tinta");
+
+  useEffect(() => {
+    if (settings) applyTheme(themeById(settings.theme));
+  }, [settings?.theme]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // índice do projeto (autocompletar cruzado, definições)
+  useEffect(() => {
+    if (!project) return;
+    const t = setTimeout(() => setIndex(project.files), 250);
+    return () => clearTimeout(t);
+  }, [project?.files]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateProject = useCallback((fn: (p: Project) => Project, touch = true) => {
     setWs((w) => {
@@ -121,23 +177,21 @@ export default function App() {
   }, []);
 
   /* ---------------- build do preview ---------------- */
-  const runNow = useCallback(
-    (hard = false) => {
-      const w = wsRef.current;
-      if (!w) return;
-      const p = w.projects[w.currentId];
-      const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject });
-      if (w.settings.clearOnRun) setLogs([]);
-      setErrorLine(null);
-      setBusy(true);
-      setBuilt((b) => (b.html === r.html && !hard ? b : r));
-      if (hard) setTimeout(() => preview.current?.reload(), 0);
-      setTimeout(() => setBusy(false), 2500);
-    },
-    []
-  );
   const previewPageRef = useRef(previewPage);
   previewPageRef.current = previewPage;
+
+  const runNow = useCallback((hard = false) => {
+    const w = wsRef.current;
+    if (!w) return;
+    const p = w.projects[w.currentId];
+    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject });
+    if (w.settings.clearOnRun) setLogs([]);
+    setErrorLine(null);
+    setBusy(true);
+    setBuilt((b) => (b.html === r.html && !hard ? b : r));
+    if (hard) setTimeout(() => preview.current?.reload(), 0);
+    setTimeout(() => setBusy(false), 2500);
+  }, []);
 
   const filesSig = project?.files;
   useEffect(() => {
@@ -164,13 +218,7 @@ export default function App() {
           const entry: LogEntry = { id: ++logSeq, level: d.level, args: d.args || [], src: d.src || undefined, count: 1, time: Date.now() };
           setLogs((ls) => {
             const last = ls[ls.length - 1];
-            if (
-              last &&
-              last.level === entry.level &&
-              last.src?.file === entry.src?.file &&
-              last.src?.line === entry.src?.line &&
-              JSON.stringify(last.args) === JSON.stringify(entry.args)
-            ) {
+            if (last && last.level === entry.level && last.src?.file === entry.src?.file && last.src?.line === entry.src?.line && JSON.stringify(last.args) === JSON.stringify(entry.args)) {
               return [...ls.slice(0, -1), { ...last, count: last.count + 1 }];
             }
             const next = [...ls, entry];
@@ -209,22 +257,26 @@ export default function App() {
 
   /* ---------------- arquivos ---------------- */
   const activeFile = project?.files.find((f) => f.id === project.activeFile) ?? null;
-  const tabs = useMemo(
-    () => (project ? project.openTabs.map((id) => project.files.find((f) => f.id === id)).filter(Boolean) as PFile[] : []),
-    [project]
-  );
+  const tabs = useMemo(() => (project ? (project.openTabs.map((id) => project.files.find((f) => f.id === id)).filter(Boolean) as PFile[]) : []), [project]);
+  const folders = useMemo(() => (project ? allFolders(project.files, project.folders) : []), [project]);
 
   const openFile = useCallback(
     (id: string) => {
-      updateProject(
-        (p) => ({ ...p, activeFile: id, openTabs: p.openTabs.includes(id) ? p.openTabs : [...p.openTabs, id] }),
-        false
-      );
+      updateProject((p) => ({ ...p, activeFile: id, openTabs: p.openTabs.includes(id) ? p.openTabs : [...p.openTabs, id] }), false);
       const f = wsRef.current?.projects[wsRef.current.currentId].files.find((x) => x.id === id);
       if (f?.kind === "html") setPreviewPage(id);
     },
     [updateProject]
   );
+
+  const jumpTo = useCallback(
+    (fileId: string, line: number, col: number) => {
+      openFile(fileId);
+      setTimeout(() => editor.current?.goto(line, col), 60);
+    },
+    [openFile]
+  );
+  const jumpLoc = useCallback((l: Loc) => jumpTo(l.fileId, l.line, l.col), [jumpTo]);
 
   const closeTab = useCallback(
     (id: string) => {
@@ -249,30 +301,57 @@ export default function App() {
     [updateProject]
   );
 
+  const taken = (p: Project, exceptId?: string) => new Set(p.files.filter((f) => f.id !== exceptId).map((f) => f.name.toLowerCase()));
+
   const createFile = (name: string) => {
     if (!project) return;
-    if (project.files.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
-      toast.error(`Já existe "${name}"`);
-      return;
-    }
+    if (taken(project).has(name.toLowerCase())) return void toast.error(`Já existe "${name}"`);
     const kind = kindOf(name);
+    if (kind === "asset") return void toast.error("Para imagens e mídias, use “Adicionar arquivos”");
     const f = makeFile(name, STARTERS[kind] ?? "");
-    if (kind === "asset") {
-      toast.error("Para imagens e mídias, use Importar");
-      return;
-    }
-    updateProject((p) => ({ ...p, files: [...p.files, f], openTabs: [...p.openTabs, f.id], activeFile: f.id, entry: p.entry || f.id }));
+    updateProject((p) => ({ ...p, files: [...p.files, f], openTabs: [...p.openTabs, f.id], activeFile: f.id, entry: p.entry || (kind === "html" ? f.id : p.entry) }));
     if (kind === "html") setPreviewPage(f.id);
+  };
+
+  const createFolder = (path: string) => {
+    if (!project) return;
+    if (folders.includes(path)) return void toast.error(`A pasta "${path}" já existe`);
+    updateProject((p) => ({ ...p, folders: [...(p.folders ?? []), path] }));
   };
 
   const renameFile = (id: string, name: string) => {
     if (!project) return;
-    if (project.files.some((f) => f.id !== id && f.name.toLowerCase() === name.toLowerCase())) {
-      toast.error(`Já existe "${name}"`);
-      return;
-    }
+    if (taken(project, id).has(name.toLowerCase())) return void toast.error(`Já existe "${name}"`);
     updateProject((p) => ({ ...p, files: p.files.map((f) => (f.id === id ? { ...f, name, kind: f.kind === "asset" ? "asset" : kindOf(name), mime: mimeOf(name) } : f)) }));
-    toast(`Renomeado para ${baseName(name)}`, { description: "Lembre de atualizar as referências nos outros arquivos." });
+    toast(`Agora é ${name}`, { description: "Atualize as referências nos outros arquivos, se houver." });
+  };
+
+  const renameFolder = (from: string, to: string) => {
+    if (!project) return;
+    if (folders.includes(to)) return void toast.error(`A pasta "${to}" já existe`);
+    const swap = (n: string) => (n === from ? to : n.startsWith(from + "/") ? to + n.slice(from.length) : n);
+    updateProject((p) => ({
+      ...p,
+      files: p.files.map((f) => ({ ...f, name: swap(f.name) })),
+      folders: (p.folders ?? []).map(swap),
+    }));
+  };
+
+  const moveFile = (id: string, dir: string) => {
+    if (!project) return;
+    const f = project.files.find((x) => x.id === id);
+    if (!f) return;
+    const name = (dir ? dir + "/" : "") + baseName(f.name);
+    if (name === f.name) return;
+    if (taken(project, id).has(name.toLowerCase())) return void toast.error(`Já existe "${name}"`);
+    updateProject((p) => ({ ...p, files: p.files.map((x) => (x.id === id ? { ...x, name } : x)) }));
+    toast(`${baseName(f.name)} → ${dir || "raiz"}`);
+  };
+
+  const moveFolder = (path: string, dir: string) => {
+    const to = (dir ? dir + "/" : "") + baseName(path);
+    if (to === path) return;
+    renameFolder(path, to);
   };
 
   const deleteFile = (id: string) => {
@@ -282,15 +361,29 @@ export default function App() {
     updateProject((p) => {
       const files = p.files.filter((x) => x.id !== id);
       const openTabs = p.openTabs.filter((x) => x !== id);
+      return { ...p, files, openTabs, activeFile: p.activeFile === id ? (openTabs[0] ?? null) : p.activeFile, entry: p.entry === id ? (files.find((x) => x.kind === "html")?.id ?? "") : p.entry };
+    });
+    toast(`"${f?.name}" excluído`, { action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) } });
+  };
+
+  const deleteFolder = (path: string) => {
+    if (!project) return;
+    const snapshot = project;
+    const inside = (n: string) => n === path || n.startsWith(path + "/");
+    const gone = new Set(project.files.filter((f) => inside(f.name)).map((f) => f.id));
+    updateProject((p) => {
+      const files = p.files.filter((f) => !gone.has(f.id));
+      const openTabs = p.openTabs.filter((x) => !gone.has(x));
       return {
         ...p,
         files,
+        folders: (p.folders ?? []).filter((d) => !inside(d)),
         openTabs,
-        activeFile: p.activeFile === id ? (openTabs[0] ?? null) : p.activeFile,
-        entry: p.entry === id ? (files.find((x) => x.kind === "html")?.id ?? "") : p.entry,
+        activeFile: p.activeFile && gone.has(p.activeFile) ? (openTabs[0] ?? null) : p.activeFile,
+        entry: gone.has(p.entry) ? (files.find((x) => x.kind === "html")?.id ?? "") : p.entry,
       };
     });
-    toast(`"${f?.name}" excluído`, {
+    toast(`Pasta "${path}" excluída${gone.size ? ` (${gone.size} arquivos)` : ""}`, {
       action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) },
     });
   };
@@ -298,13 +391,7 @@ export default function App() {
   const duplicateFile = (id: string) => {
     const f = project?.files.find((x) => x.id === id);
     if (!f || !project) return;
-    const dot = f.name.lastIndexOf(".");
-    let n = 1;
-    let name = "";
-    do {
-      name = dot > 0 ? `${f.name.slice(0, dot)}-copia${n > 1 ? n : ""}${f.name.slice(dot)}` : `${f.name}-copia${n > 1 ? n : ""}`;
-      n++;
-    } while (project.files.some((x) => x.name === name));
+    const name = uniqueName(f.name.replace(/(\.[^./]+)?$/, "-copia$1"), taken(project));
     const copy = { ...f, id: uid(), name };
     updateProject((p) => ({ ...p, files: [...p.files, copy], openTabs: f.kind === "asset" ? p.openTabs : [...p.openTabs, copy.id], activeFile: copy.id }));
   };
@@ -317,14 +404,56 @@ export default function App() {
   };
 
   /* ---------------- importação ---------------- */
-  const receive = async (list: Incoming[]) => {
+  const addFiles = useCallback(
+    (incoming: PFile[], dir: string, mode: "add" | "merge") => {
+      let entryId: string | null = null;
+      let firstOpen: string | null = null;
+      let renamed = 0;
+      updateProject((p) => {
+        const files = [...p.files];
+        const names = taken(p);
+        const opened = [...p.openTabs];
+        for (const f of incoming) {
+          let name = (dir ? dir + "/" : "") + f.name;
+          const existing = files.findIndex((x) => x.name.toLowerCase() === name.toLowerCase());
+          let id = f.id;
+          if (existing >= 0 && mode === "merge") {
+            id = files[existing].id;
+            files[existing] = { ...files[existing], content: f.content, kind: f.kind, mime: f.mime };
+          } else {
+            const unique = uniqueName(name, names);
+            if (unique !== name) renamed++;
+            name = unique;
+            names.add(name.toLowerCase());
+            files.push({ ...f, name });
+          }
+          if (f.kind !== "asset" && !opened.includes(id) && opened.length < 16) opened.push(id);
+          if (f.kind === "html" && !entryId && (!p.entry || mode === "merge")) entryId = id;
+          if (!firstOpen && f.kind !== "asset") firstOpen = id;
+        }
+        const extra = dir && !(p.folders ?? []).includes(dir) ? [...(p.folders ?? []), dir] : (p.folders ?? []);
+        return { ...p, files, folders: extra, openTabs: opened, activeFile: firstOpen ?? p.activeFile, entry: entryId ?? p.entry };
+      });
+      if (entryId) setPreviewPage(entryId);
+      toast.success(`${incoming.length} ${incoming.length === 1 ? "arquivo adicionado" : "arquivos adicionados"}${dir ? ` em ${dir}` : ""}`, {
+        description: renamed ? `${renamed} renomeado(s) para não sobrescrever` : undefined,
+      });
+    },
+    [updateProject]
+  );
+
+  const receive = async (list: Incoming[], directDir: string | null = null) => {
     if (!list.length) return;
     const t = toast.loading("Lendo arquivos…");
     try {
       const files = await readIncoming(list);
       toast.dismiss(t);
-      if (!files.length) {
-        toast.error("Nenhum arquivo utilizável");
+      if (!files.length) return void toast.error("Nenhum arquivo utilizável");
+      if (directDir !== null) {
+        // pasta inteira adicionada "aqui": mantém o nome da pasta
+        const root = rootFolderName(list);
+        const dir = root && list.length > 0 && list.every((i) => i.path.includes("/")) ? (directDir ? directDir + "/" : "") + root : directDir;
+        addFiles(files, dir, "add");
         return;
       }
       const html = files.find((f) => baseName(f.name) === "index.html") ?? files.find((f) => f.kind === "html");
@@ -335,53 +464,42 @@ export default function App() {
       toast.error("Falha ao ler arquivos", { description: String(e) });
     }
   };
+  const receiveRef = useRef(receive);
+  receiveRef.current = receive;
 
-  const confirmImport = (mode: "new" | "merge", name: string) => {
+  const confirmImport = (mode: ImportMode, opts: { name: string; dir: string }) => {
     if (!pendingImport || !ws) return;
     const incoming = pendingImport.files;
     setPendingImport(null);
+    if (mode !== "new") return addFiles(incoming, opts.dir, mode);
     const textFiles = incoming.filter((f) => f.kind !== "asset");
     const html = incoming.find((f) => baseName(f.name) === "index.html" && !f.name.includes("/")) ?? incoming.find((f) => f.kind === "html");
     const firstOpen = html ?? textFiles[0] ?? null;
+    const now = Date.now();
+    const p: Project = {
+      id: uid(),
+      name: opts.name,
+      files: incoming,
+      folders: [],
+      entry: html?.id ?? "",
+      openTabs: textFiles.slice(0, 10).map((f) => f.id),
+      activeFile: firstOpen?.id ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setWs((w) => (w ? { ...w, projects: { ...w.projects, [p.id]: p }, order: [p.id, ...w.order], currentId: p.id } : w));
+    setPreviewPage(html?.id ?? null);
+    setLogs([]);
+    toast.success(`Projeto "${opts.name}" criado`, { description: `${incoming.length} arquivos importados` });
+  };
 
-    if (mode === "new") {
-      const now = Date.now();
-      const p: Project = {
-        id: uid(),
-        name,
-        files: incoming,
-        entry: html?.id ?? "",
-        openTabs: textFiles.slice(0, 10).map((f) => f.id),
-        activeFile: firstOpen?.id ?? null,
-        createdAt: now,
-        updatedAt: now,
-      };
-      setWs((w) => (w ? { ...w, projects: { ...w.projects, [p.id]: p }, order: [p.id, ...w.order], currentId: p.id } : w));
-      setPreviewPage(html?.id ?? null);
-      setLogs([]);
-      toast.success(`Projeto "${name}" criado`, { description: `${incoming.length} arquivos importados` });
-    } else {
-      let entryId: string | null = null;
-      let openId: string | null = null;
-      updateProject((p) => {
-        const files = [...p.files];
-        const opened = [...p.openTabs];
-        for (const f of incoming) {
-          const i = files.findIndex((x) => x.name.toLowerCase() === f.name.toLowerCase());
-          let id = f.id;
-          if (i >= 0) {
-            id = files[i].id;
-            files[i] = { ...files[i], content: f.content, kind: f.kind, mime: f.mime };
-          } else files.push(f);
-          if (f.kind !== "asset" && !opened.includes(id) && opened.length < 14) opened.push(id);
-          if (f === html) entryId = id;
-          if (f === firstOpen) openId = id;
-        }
-        return { ...p, files, openTabs: opened, activeFile: openId ?? p.activeFile, entry: entryId ?? p.entry };
-      });
-      if (entryId) setPreviewPage(entryId);
-      toast.success(`${incoming.length} arquivos mesclados`);
-    }
+  const pickFiles = (dir: string | null) => {
+    importDir.current = dir;
+    fileInput.current?.click();
+  };
+  const pickFolder = (dir: string | null) => {
+    importDir.current = dir;
+    folderInput.current?.click();
   };
 
   /* ---------------- projetos ---------------- */
@@ -428,17 +546,14 @@ export default function App() {
     const snapshot = ws;
     const order = ws.order.filter((x) => x !== project.id);
     let next: Workspace;
-    if (!order.length) {
-      const fresh = freshWorkspace();
-      next = { ...fresh, settings: ws.settings };
-    } else {
+    if (!order.length) next = { ...freshWorkspace(), settings: ws.settings };
+    else {
       const projects = { ...ws.projects };
       delete projects[project.id];
       next = { ...ws, projects, order, currentId: order[0] };
     }
     setWs(next);
-    const np = next.projects[next.currentId];
-    setPreviewPage(np.entry);
+    setPreviewPage(next.projects[next.currentId].entry);
     toast(`Projeto "${project.name}" excluído`, {
       action: {
         label: "Desfazer",
@@ -463,6 +578,7 @@ export default function App() {
     if (!project) return;
     const entries: Record<string, Uint8Array> = {};
     const enc = new TextEncoder();
+    for (const d of project.folders ?? []) entries[d + "/"] = new Uint8Array();
     for (const f of project.files) entries[f.name] = f.kind === "asset" ? dataURLToBytes(f.content) : enc.encode(f.content);
     const zipped = zipSync(entries, { level: 6 });
     download(`${slug(project.name)}.zip`, new Blob([zipped as BlobPart], { type: "application/zip" }));
@@ -471,8 +587,7 @@ export default function App() {
 
   const backup = () => {
     if (!ws) return;
-    const stamp = new Date().toISOString().slice(0, 10);
-    download(`poiesis-backup-${stamp}.json`, new Blob([JSON.stringify(ws)], { type: "application/json" }));
+    download(`poiesis-backup-${new Date().toISOString().slice(0, 10)}.json`, new Blob([JSON.stringify(ws)], { type: "application/json" }));
   };
 
   const restore = async (file: File | undefined) => {
@@ -506,25 +621,78 @@ export default function App() {
       const out = await formatCode(activeFile.content, activeFile.kind, settings.tabSize);
       onChange(activeFile.id, out);
     } catch (e) {
-      const msg = String((e as Error)?.message || e).split("\n")[0];
-      toast.error("Não deu pra formatar", { description: msg });
+      toast.error("Não deu pra formatar", { description: String((e as Error)?.message || e).split("\n")[0] });
     } finally {
       setFormatting(false);
     }
+  };
+
+  /* ---------------- renomear símbolo no projeto ---------------- */
+  const symbolEdits = (sym: Sym) => {
+    if (!project) return [];
+    const ix = buildIndex(project.files);
+    const locs: Loc[] =
+      sym.kind === "class"
+        ? [...(ix.classes.get(sym.name)?.defs ?? []), ...(ix.classes.get(sym.name)?.uses ?? [])]
+        : sym.kind === "id"
+          ? [...(ix.ids.get(sym.name)?.defs ?? []), ...(ix.ids.get(sym.name)?.styles ?? []), ...(ix.ids.get(sym.name)?.uses ?? [])]
+          : sym.kind === "var"
+            ? [...(ix.vars.get(sym.name)?.defs ?? []), ...(ix.vars.get(sym.name)?.uses ?? [])]
+            : sym.kind === "keyframes"
+              ? [...(ix.keyframes.get(sym.name)?.defs ?? []), ...(ix.keyframes.get(sym.name)?.uses ?? [])]
+              : [];
+    const files = new Map(project.files.map((f) => [f.id, f]));
+    return locs.filter((l) => files.get(l.fileId)?.content.slice(l.from, l.from + sym.name.length) === sym.name);
+  };
+
+  const askRename = (sym: Sym) => {
+    if (!["class", "id", "var", "keyframes"].includes(sym.kind)) return false;
+    setRenameTarget({ sym, label: symLabel(sym), name: sym.name, count: symbolEdits(sym).length });
+    return true;
+  };
+
+  const doRename = (newName: string) => {
+    if (!renameTarget || !project) return;
+    const { sym } = renameTarget;
+    setRenameTarget(null);
+    const edits = symbolEdits(sym);
+    const byFile = new Map<string, Loc[]>();
+    for (const l of edits) byFile.set(l.fileId, [...(byFile.get(l.fileId) ?? []), l]);
+    const snapshot = project;
+    updateProject((p) => ({
+      ...p,
+      files: p.files.map((f) => {
+        const ls = byFile.get(f.id);
+        if (!ls) return f;
+        let c = f.content;
+        for (const l of [...ls].sort((a, b) => b.from - a.from)) c = c.slice(0, l.from) + newName + c.slice(l.from + sym.name.length);
+        return { ...f, content: c };
+      }),
+    }));
+    toast.success(`${renameTarget.label} → ${newName}`, {
+      description: `${edits.length} ocorrências em ${byFile.size} arquivo(s)`,
+      action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) },
+    });
+  };
+
+  /* ---------------- busca no projeto ---------------- */
+  const openSearch = (q = "") => {
+    updateSettings({ sidebar: true, panel: "search" });
+    setSearchSeed({ q, n: Date.now() });
+  };
+
+  const replaceAll = (changes: { id: string; content: string }[], count: number) => {
+    if (!project) return;
+    const snapshot = project;
+    const map = new Map(changes.map((c) => [c.id, c.content]));
+    updateProject((p) => ({ ...p, files: p.files.map((f) => (map.has(f.id) ? { ...f, content: map.get(f.id)! } : f)) }));
+    toast.success(`${count} substituições`, { action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) } });
   };
 
   /* ---------------- console ---------------- */
   const evalCode = (code: string) => {
     setLogs((ls) => [...ls, { id: ++logSeq, level: "input", args: [{ t: "str", v: code }], count: 1, time: Date.now() }]);
     preview.current?.eval(code);
-  };
-
-  const jumpTo = (file: string, line: number, col: number) => {
-    if (!project) return;
-    const f = findFile(project.files, file);
-    if (!f) return;
-    openFile(f.id);
-    setTimeout(() => editor.current?.goto(line, col), 60);
   };
 
   const counts = useMemo(() => {
@@ -537,6 +705,13 @@ export default function App() {
     return { e, w };
   }, [logs]);
 
+  /* ---------------- painel lateral ---------------- */
+  const selectPanel = (p: Panel) => {
+    if (!settings) return;
+    if (settings.sidebar && settings.panel === p) updateSettings({ sidebar: false });
+    else updateSettings({ sidebar: true, panel: p });
+  };
+
   /* ---------------- atalhos ---------------- */
   const layoutCycle: Layout[] = ["split", "stack", "editor", "preview"];
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
@@ -545,7 +720,10 @@ export default function App() {
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     const inEditor = !!(e.target as HTMLElement | null)?.closest?.(".cm-editor");
-    if (mod && !e.shiftKey && k === "p") {
+    if (mod && e.shiftKey && k === "f") {
+      e.preventDefault();
+      openSearch(editor.current?.getSelection() ?? "");
+    } else if (mod && !e.shiftKey && k === "p") {
       e.preventDefault();
       setPalette("files");
     } else if (mod && (k === "k" || (e.shiftKey && k === "p"))) {
@@ -553,7 +731,7 @@ export default function App() {
       setPalette("all");
     } else if (mod && (k === "s" || k === "enter")) {
       e.preventDefault();
-      if (!inEditor) runNow(true); // dentro do editor o próprio keymap executa
+      if (!inEditor) runNow(true);
     } else if (mod && k === "b") {
       e.preventDefault();
       updateSettings({ sidebar: !settings.sidebar });
@@ -565,7 +743,7 @@ export default function App() {
       runNow(true);
     } else if (mod && k === "o") {
       e.preventDefault();
-      fileInput.current?.click();
+      pickFiles(null);
     } else if (mod && k === "\\") {
       e.preventDefault();
       updateSettings({ layout: layoutCycle[(layoutCycle.indexOf(settings.layout) + 1) % layoutCycle.length] });
@@ -577,7 +755,9 @@ export default function App() {
       format();
     } else if (e.key === "F2" && activeFile) {
       e.preventDefault();
-      const n = prompt("Novo nome:", activeFile.name);
+      const sym = inEditor ? editor.current?.symbolAtCursor() : null;
+      if (sym && askRename(sym)) return;
+      const n = prompt("Novo nome do arquivo:", activeFile.name);
       if (n && n.trim() && n !== activeFile.name) renameFile(activeFile.id, n.trim());
     }
   };
@@ -587,7 +767,7 @@ export default function App() {
     return () => window.removeEventListener("keydown", h, true);
   }, []);
 
-  /* ---------------- arrastar e soltar ---------------- */
+  /* ---------------- arrastar e soltar na janela ---------------- */
   useEffect(() => {
     let depth = 0;
     const isFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types || []).includes("Files");
@@ -602,7 +782,10 @@ export default function App() {
       if (!depth) setDropping(false);
     };
     const over = (e: DragEvent) => {
-      if (isFiles(e)) e.preventDefault();
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      const inExplorer = !!(e.target as HTMLElement | null)?.closest?.("[data-explorer]");
+      setDropping(!inExplorer);
     };
     const drop = async (e: DragEvent) => {
       if (!isFiles(e) || !e.dataTransfer) return;
@@ -622,8 +805,6 @@ export default function App() {
       window.removeEventListener("drop", drop);
     };
   }, []);
-  const receiveRef = useRef(receive);
-  receiveRef.current = receive;
 
   /* ---------------- comandos da paleta ---------------- */
   const commands: Cmd[] = settings
@@ -631,12 +812,16 @@ export default function App() {
         { id: "run", group: "Executar", label: "Executar agora", icon: "play_arrow", shortcut: "Ctrl ↵", run: () => runNow(true) },
         { id: "auto", group: "Executar", label: settings.autoRun ? "Desligar modo ao vivo" : "Ligar modo ao vivo", icon: "bolt", run: () => updateSettings({ autoRun: !settings.autoRun }) },
         { id: "fmt", group: "Editor", label: "Formatar documento", icon: "format_align_left", shortcut: "Shift Alt F", run: format },
-        { id: "find", group: "Editor", label: "Buscar e substituir", icon: "search", shortcut: "Ctrl F", run: () => editor.current?.search() },
+        { id: "def", group: "Editor", label: "Definição do símbolo no cursor", icon: "menu_book", shortcut: "Alt F1", run: () => editor.current?.showDefinition() },
+        { id: "goto", group: "Editor", label: "Ir para definição", icon: "call_made", shortcut: "F12", run: () => editor.current?.gotoDefinition() },
+        { id: "find", group: "Editor", label: "Buscar e substituir no arquivo", icon: "search", shortcut: "Ctrl F", run: () => editor.current?.search() },
+        { id: "findp", group: "Editor", label: "Buscar no projeto", icon: "manage_search", shortcut: "Ctrl Shift F", run: () => openSearch() },
         { id: "wrap", group: "Editor", label: "Alternar quebra de linha", icon: "wrap_text", shortcut: "Alt Z", run: () => updateSettings({ wrap: !settings.wrap }) },
         { id: "comment", group: "Editor", label: "Comentar/descomentar linha", icon: "comment", shortcut: "Ctrl /", run: () => editor.current?.comment() },
+        { id: "hover", group: "Editor", label: settings.hoverDocs ? "Desligar definições ao passar o mouse" : "Ligar definições ao passar o mouse", icon: "menu_book", run: () => updateSettings({ hoverDocs: !settings.hoverDocs }) },
         { id: "font+", group: "Editor", label: "Aumentar fonte", icon: "text_increase", run: () => updateSettings({ fontSize: Math.min(22, settings.fontSize + 1) }) },
         { id: "font-", group: "Editor", label: "Diminuir fonte", icon: "text_decrease", run: () => updateSettings({ fontSize: Math.max(10, settings.fontSize - 1) }) },
-        { id: "sidebar", group: "Exibir", label: "Mostrar/esconder arquivos", icon: "left_panel_open", shortcut: "Ctrl B", run: () => updateSettings({ sidebar: !settings.sidebar }) },
+        { id: "sidebar", group: "Exibir", label: "Mostrar/esconder painel lateral", icon: "left_panel_open", shortcut: "Ctrl B", run: () => updateSettings({ sidebar: !settings.sidebar }) },
         { id: "console", group: "Exibir", label: "Mostrar/esconder console", icon: "terminal", shortcut: "Ctrl J", run: () => updateSettings({ console: !settings.console }) },
         { id: "l-split", group: "Exibir", label: "Layout lado a lado", icon: "vertical_split", run: () => updateSettings({ layout: "split" }) },
         { id: "l-stack", group: "Exibir", label: "Layout empilhado", icon: "horizontal_split", run: () => updateSettings({ layout: "stack" }) },
@@ -645,20 +830,29 @@ export default function App() {
         { id: "d-full", group: "Exibir", label: "Preview: tela cheia", icon: "desktop_windows", run: () => updateSettings({ device: "full" }) },
         { id: "d-tab", group: "Exibir", label: "Preview: tablet", icon: "tablet_mac", run: () => updateSettings({ device: "tablet" }) },
         { id: "d-mob", group: "Exibir", label: "Preview: celular", icon: "smartphone", run: () => updateSettings({ device: "mobile" }) },
-        { id: "imp-f", group: "Projeto", label: "Importar arquivos", icon: "upload_file", shortcut: "Ctrl O", run: () => fileInput.current?.click() },
-        { id: "imp-d", group: "Projeto", label: "Importar pasta", icon: "drive_folder_upload", run: () => folderInput.current?.click() },
+        ...["tinta", "dracula", "onedark", "monokai", "nord", "tokyo", "catppuccin", "solarized", "papel"].map((id) => ({
+          id: "t-" + id,
+          group: "Tema",
+          label: "Tema: " + themeById(id).name,
+          icon: themeById(id).dark ? "dark_mode" : "light_mode",
+          run: () => updateSettings({ theme: id }),
+        })),
+        { id: "newf", group: "Projeto", label: "Novo arquivo", icon: "note_add", run: () => updateSettings({ sidebar: true, panel: "files" }) },
+        { id: "imp-f", group: "Projeto", label: "Importar arquivos", icon: "upload_file", shortcut: "Ctrl O", run: () => pickFiles(null) },
+        { id: "imp-d", group: "Projeto", label: "Importar pasta", icon: "drive_folder_upload", run: () => pickFolder(null) },
         { id: "exp-z", group: "Projeto", label: "Exportar projeto (.zip)", icon: "folder_zip", run: exportZip },
         { id: "exp-h", group: "Projeto", label: "Exportar HTML único", icon: "html", run: exportHtml },
         { id: "new", group: "Projeto", label: "Novo projeto em branco", icon: "add", run: () => createProject("vazio") },
         { id: "clear", group: "Console", label: "Limpar console", icon: "block", run: () => setLogs([]) },
-        { id: "prefs", group: "Geral", label: "Preferências", icon: "tune", run: () => setSettingsOpen(true) },
+        { id: "keys", group: "Geral", label: "Atalhos de teclado", icon: "keyboard", run: () => setShortcutsOpen(true) },
+        { id: "prefs", group: "Geral", label: "Preferências", icon: "settings", run: () => setSettingsOpen(true) },
       ]
     : [];
 
   if (!ws || !project || !settings) {
     return (
-      <div className="flex h-full items-center justify-center bg-[var(--ink-0)]">
-        <Logo size={44} className="animate-pulse" />
+      <div className="flex h-full items-center justify-center">
+        <Logo size={48} className="animate-pulse" />
       </div>
     );
   }
@@ -669,32 +863,47 @@ export default function App() {
   const dir = settings.layout === "stack" ? "col" : "row";
 
   const editorPane = (
-    <div className="flex h-full flex-col bg-[var(--ink-2)]">
+    <div className="md-pane flex h-full flex-col" style={{ background: "var(--syn-bg)" }}>
       <EditorTabs
         tabs={tabs}
         activeId={project.activeFile}
-        sidebar={settings.sidebar}
         wrap={settings.wrap}
         canFormat={!!activeFile && canFormat(activeFile.kind)}
         formatting={formatting}
         onOpen={openFile}
         onClose={closeTab}
-        onShowSidebar={() => updateSettings({ sidebar: true })}
         onFormat={format}
         onSearch={() => editor.current?.search()}
         onWrap={() => updateSettings({ wrap: !settings.wrap })}
       />
       <div className="relative min-h-0 flex-1">
         <div className={activeFile && activeFile.kind !== "asset" ? "h-full" : "hidden"}>
-          <CodeEditor
-            ref={editor}
-            file={activeFile}
-            settings={settings}
-            errorLine={errorLine}
-            onChange={onChange}
-            onCursor={setCursor}
-            onRun={() => runNow(true)}
-          />
+          <EditorContextMenu
+            editor={editor}
+            canFormat={!!activeFile && canFormat(activeFile.kind)}
+            onFormat={format}
+            onRename={(s) => askRename(s)}
+            onHighlight={(sel) => {
+              if (!settings.console) updateSettings({ console: true });
+              preview.current?.highlight(sel);
+            }}
+            onSearch={(q) => openSearch(q)}
+            onPalette={() => setPalette("all")}
+          >
+            <CodeEditor
+              ref={editor}
+              file={activeFile}
+              settings={settings}
+              dark={theme.dark}
+              errorLine={errorLine}
+              onChange={onChange}
+              onCursor={setCursor}
+              onRun={() => runNow(true)}
+              onJump={jumpLoc}
+              onOpenFile={(f) => openFile(f.id)}
+              onToast={(m) => toast(m)}
+            />
+          </EditorContextMenu>
         </div>
         {activeFile?.kind === "asset" && (
           <AssetView
@@ -706,17 +915,17 @@ export default function App() {
           />
         )}
         {!activeFile && (
-          <div className="flex h-full flex-col items-center justify-center gap-5 text-[var(--paper-3)]">
-            <Logo size={56} className="opacity-40 grayscale-[.4]" />
-            <div className="font-display text-[26px] italic text-[var(--paper-2)]">O que vem a ser?</div>
-            <div className="grid gap-1.5 text-[12px]">
+          <div className="flex h-full flex-col items-center justify-center gap-5 text-md-on-variant">
+            <Logo size={64} className="opacity-50" />
+            <div className="font-display text-[30px] italic text-md-on-surface">O que vem a ser?</div>
+            <div className="grid gap-2 text-[12.5px]">
               {[
                 ["Abrir arquivo", "Ctrl P"],
                 ["Comandos", "Ctrl K"],
                 ["Importar arquivos", "Ctrl O"],
                 ["Executar", "Ctrl ↵"],
               ].map(([a, b]) => (
-                <div key={a} className="flex w-56 items-center justify-between">
+                <div key={a} className="flex w-60 items-center justify-between">
                   <span>{a}</span>
                   <span className="kbd">{b}</span>
                 </div>
@@ -738,197 +947,232 @@ export default function App() {
       onDrag={setDragging}
       hide={settings.console ? null : "b"}
       a={
-        <Preview
-          ref={preview}
-          html={built.html}
-          page={built.page}
-          pages={htmlPages}
-          device={settings.device}
-          landscape={settings.landscape}
-          busy={busy}
-          loadMs={loadMs}
-          errors={counts.e}
-          warns={counts.w}
-          consoleOpen={settings.console}
-          canPopout={isExtension()}
-          dragging={dragging}
-          onPage={(id) => setPreviewPage(id)}
-          onDevice={(d: Device) => updateSettings({ device: d })}
-          onLandscape={() => updateSettings({ landscape: !settings.landscape })}
-          onPopout={() => {
-            setPopout(true);
-            pushPopout(built.html, built.page?.name ?? "preview");
-            openPopout();
-          }}
-          onToggleConsole={() => updateSettings({ console: !settings.console })}
-          onExportHtml={exportHtml}
-        />
+        <div className="md-pane h-full">
+          <Preview
+            ref={preview}
+            html={built.html}
+            page={built.page}
+            pages={htmlPages}
+            device={settings.device}
+            landscape={settings.landscape}
+            busy={busy}
+            loadMs={loadMs}
+            errors={counts.e}
+            warns={counts.w}
+            consoleOpen={settings.console}
+            canPopout={isExtension()}
+            dragging={dragging}
+            onPage={(id) => setPreviewPage(id)}
+            onDevice={(d: Device) => updateSettings({ device: d })}
+            onLandscape={() => updateSettings({ landscape: !settings.landscape })}
+            onPopout={() => {
+              setPopout(true);
+              pushPopout(built.html, built.page?.name ?? "preview");
+              openPopout();
+            }}
+            onToggleConsole={() => updateSettings({ console: !settings.console })}
+            onExportHtml={exportHtml}
+          />
+        </div>
       }
       b={
-        <ConsolePanel
-          logs={logs}
-          onClear={() => setLogs([])}
-          onEval={evalCode}
-          onJump={jumpTo}
-          onClose={() => updateSettings({ console: false })}
-          knownFile={(n) => !!findFile(project.files, n)}
-        />
+        <div className="md-pane h-full">
+          <ConsolePanel
+            logs={logs}
+            onClear={() => setLogs([])}
+            onEval={evalCode}
+            onJump={(file, line, col) => {
+              const f = findFile(project.files, file);
+              if (f) jumpTo(f.id, line, col);
+            }}
+            onClose={() => updateSettings({ console: false })}
+            knownFile={(n) => !!findFile(project.files, n)}
+          />
+        </div>
       }
     />
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <TopBar
-        project={project}
-        projects={ws.order.map((id) => ws.projects[id])}
-        autoRun={settings.autoRun}
-        layout={settings.layout}
-        onRun={() => runNow(true)}
-        onAutoRun={() => updateSettings({ autoRun: !settings.autoRun })}
-        onLayout={(l) => updateSettings({ layout: l })}
-        onSwitch={switchProject}
-        onNew={createProject}
-        onRename={(name) => updateProject((p) => ({ ...p, name }))}
-        onDuplicate={duplicateProject}
-        onDelete={deleteProject}
-        onImportFiles={() => fileInput.current?.click()}
-        onImportFolder={() => folderInput.current?.click()}
-        onExportHtml={exportHtml}
-        onExportZip={exportZip}
-        onPalette={() => setPalette("all")}
-        onSettings={() => setSettingsOpen(true)}
-      />
+    <TooltipProvider delayDuration={450} skipDelayDuration={150}>
+      <div className="flex h-full">
+        <NavRail
+          panel={settings.panel}
+          open={settings.sidebar}
+          onSelect={selectPanel}
+          onSettings={() => setSettingsOpen(true)}
+          onHelp={() => setShortcutsOpen(true)}
+        />
 
-      <div className="flex min-h-0 flex-1">
-        {settings.sidebar && (
-          <aside className="w-[236px] shrink-0 border-r border-[var(--line)]">
-            <Explorer
-              projectName={project.name}
-              files={project.files}
-              activeId={project.activeFile}
-              entryId={project.entry}
-              onOpen={openFile}
-              onCreate={createFile}
-              onRename={renameFile}
-              onDelete={deleteFile}
-              onDuplicate={duplicateFile}
-              onSetEntry={(id) => {
-                updateProject((p) => ({ ...p, entry: id }));
-                setPreviewPage(id);
-              }}
-              onDownload={downloadFile}
-              onImportFiles={() => fileInput.current?.click()}
-              onImportFolder={() => folderInput.current?.click()}
-              onCollapse={() => updateSettings({ sidebar: false })}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopAppBar
+            project={project}
+            autoRun={settings.autoRun}
+            layout={settings.layout}
+            busy={busy}
+            onRun={() => runNow(true)}
+            onAutoRun={() => updateSettings({ autoRun: !settings.autoRun })}
+            onLayout={(l) => updateSettings({ layout: l })}
+            onNew={createProject}
+            onRename={(name) => updateProject((p) => ({ ...p, name }))}
+            onDuplicate={duplicateProject}
+            onDelete={deleteProject}
+            onImportFiles={() => pickFiles(null)}
+            onImportFolder={() => pickFolder(null)}
+            onExportHtml={exportHtml}
+            onExportZip={exportZip}
+            onPalette={() => setPalette("all")}
+          />
+
+          <div className="flex min-h-0 flex-1 pr-2">
+            {settings.sidebar && (
+              <aside className="md-pane rise mr-2 w-[268px] shrink-0">
+                {settings.panel === "files" && (
+                  <Explorer
+                    projectName={project.name}
+                    files={project.files}
+                    folders={project.folders ?? []}
+                    activeId={project.activeFile}
+                    entryId={project.entry}
+                    onOpen={openFile}
+                    onCreate={createFile}
+                    onCreateFolder={createFolder}
+                    onRename={renameFile}
+                    onRenameFolder={renameFolder}
+                    onDelete={deleteFile}
+                    onDeleteFolder={deleteFolder}
+                    onDuplicate={duplicateFile}
+                    onSetEntry={(id) => {
+                      updateProject((p) => ({ ...p, entry: id }));
+                      setPreviewPage(id);
+                    }}
+                    onDownload={downloadFile}
+                    onMove={moveFile}
+                    onMoveFolder={moveFolder}
+                    onAddFiles={(d) => pickFiles(d)}
+                    onAddFolder={(d) => pickFolder(d)}
+                    onDropExternal={async (d, dt) => receiveRef.current(await collectDrop(dt), d)}
+                    onCopy={(t) => {
+                      navigator.clipboard.writeText(t);
+                      toast.success("Caminho copiado", { description: t });
+                    }}
+                  />
+                )}
+                {settings.panel === "search" && <SearchPanel files={project.files} seed={searchSeed} onJump={jumpTo} onReplaceAll={replaceAll} />}
+                {settings.panel === "projects" && (
+                  <ProjectsPanel projects={ws.order.map((id) => ws.projects[id])} currentId={project.id} onSwitch={switchProject} onNew={createProject} />
+                )}
+                {settings.panel === "themes" && <ThemesPanel current={settings.theme} onPick={(id) => updateSettings({ theme: id })} />}
+              </aside>
+            )}
+            <Split
+              className="flex-1"
+              dir={dir}
+              size={dir === "row" ? ui.main : ui.stack}
+              onSize={(v) => setUi((u: typeof ui) => (dir === "row" ? { ...u, main: v } : { ...u, stack: v }))}
+              min={18}
+              max={82}
+              onDrag={setDragging}
+              hide={!showEditor ? "a" : !showPreview ? "b" : null}
+              a={editorPane}
+              b={previewPane}
             />
-          </aside>
+          </div>
+
+          <StatusBar
+            file={activeFile}
+            cursor={cursor}
+            settings={settings}
+            saving={saving}
+            errors={counts.e}
+            warns={counts.w}
+            missing={built.missing}
+            onConsole={() => updateSettings({ console: true })}
+            onTab={() => updateSettings({ tabSize: settings.tabSize === 2 ? 4 : 2 })}
+          />
+        </div>
+
+        {/* entradas ocultas */}
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            receive(fromInput(e.target.files), importDir.current);
+            importDir.current = null;
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={folderInput}
+          type="file"
+          hidden
+          {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          onChange={(e) => {
+            receive(fromInput(e.target.files), importDir.current);
+            importDir.current = null;
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={backupInput}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={(e) => {
+            restore(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+
+        {dropping && (
+          <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-[var(--md-scrim)]">
+            <div className="rise flex flex-col items-center gap-3 rounded-[28px] bg-md-high px-14 py-10 shadow-[var(--md-elev-3)]">
+              <Icon name="move_to_inbox" size={44} className="text-md-primary" />
+              <div className="font-display text-[30px] italic text-md-on-surface">Solte para dar forma</div>
+              <div className="text-[12.5px] text-md-on-variant">HTML, CSS, JS, imagens ou uma pasta inteira — ou solte numa pasta da barra lateral</div>
+            </div>
+          </div>
         )}
-        <Split
-          className="flex-1"
-          dir={dir}
-          size={dir === "row" ? ui.main : ui.stack}
-          onSize={(v) => setUi((u: typeof ui) => (dir === "row" ? { ...u, main: v } : { ...u, stack: v }))}
-          min={18}
-          max={82}
-          onDrag={setDragging}
-          hide={!showEditor ? "a" : !showPreview ? "b" : null}
-          a={editorPane}
-          b={previewPane}
+
+        <ImportDialog
+          files={pendingImport?.files ?? null}
+          suggested={pendingImport?.name ?? ""}
+          currentName={project.name}
+          folders={folders}
+          onCancel={() => setPendingImport(null)}
+          onConfirm={confirmImport}
+        />
+        <RenameDialog target={renameTarget} onCancel={() => setRenameTarget(null)} onConfirm={doRename} />
+        <SettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          settings={settings}
+          onChange={updateSettings}
+          onBackup={backup}
+          onRestore={() => backupInput.current?.click()}
+        />
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <CommandPalette open={!!palette} mode={palette ?? "all"} onOpenChange={(o) => !o && setPalette(null)} files={project.files} commands={commands} onOpenFile={openFile} />
+        <Toaster
+          theme={theme.dark ? "dark" : "light"}
+          position="bottom-center"
+          offset={40}
+          toastOptions={{
+            style: {
+              background: "var(--md-inverse-surface)",
+              color: "var(--md-inverse-on-surface)",
+              border: "none",
+              borderRadius: 8,
+              fontFamily: "var(--font-ui)",
+              fontSize: 13,
+              boxShadow: "var(--md-elev-3)",
+            },
+            actionButtonStyle: { background: "transparent", color: "var(--md-inverse-primary)", fontWeight: 600 },
+          }}
         />
       </div>
-
-      <StatusBar
-        file={activeFile}
-        cursor={cursor}
-        settings={settings}
-        saving={saving}
-        errors={counts.e}
-        warns={counts.w}
-        missing={built.missing}
-        onConsole={() => updateSettings({ console: true })}
-        onTab={() => updateSettings({ tabSize: settings.tabSize === 2 ? 4 : 2 })}
-      />
-
-      {/* entradas ocultas */}
-      <input
-        ref={fileInput}
-        type="file"
-        multiple
-        hidden
-        onChange={(e) => {
-          receive(fromInput(e.target.files));
-          e.target.value = "";
-        }}
-      />
-      <input
-        ref={folderInput}
-        type="file"
-        hidden
-        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
-        onChange={(e) => {
-          receive(fromInput(e.target.files));
-          e.target.value = "";
-        }}
-      />
-      <input
-        ref={backupInput}
-        type="file"
-        accept=".json,application/json"
-        hidden
-        onChange={(e) => {
-          restore(e.target.files?.[0]);
-          e.target.value = "";
-        }}
-      />
-
-      {dropping && (
-        <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-[var(--ink-0)]/80 backdrop-blur-sm">
-          <div className="rise flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[var(--gold)] px-14 py-10">
-            <Icon name="move_to_inbox" size={40} className="text-[var(--gold)]" />
-            <div className="font-display text-[28px] italic text-[var(--paper)]">Solte para dar forma</div>
-            <div className="text-[12px] text-[var(--paper-3)]">HTML, CSS, JS, imagens ou uma pasta inteira</div>
-          </div>
-        </div>
-      )}
-
-      <ImportDialog
-        files={pendingImport?.files ?? null}
-        suggested={pendingImport?.name ?? ""}
-        currentName={project.name}
-        onCancel={() => setPendingImport(null)}
-        onConfirm={confirmImport}
-      />
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        settings={settings}
-        onChange={updateSettings}
-        onBackup={backup}
-        onRestore={() => backupInput.current?.click()}
-      />
-      <CommandPalette
-        open={!!palette}
-        mode={palette ?? "all"}
-        onOpenChange={(o) => !o && setPalette(null)}
-        files={project.files}
-        commands={commands}
-        onOpenFile={openFile}
-      />
-      <Toaster
-        theme="dark"
-        position="bottom-right"
-        offset={36}
-        toastOptions={{
-          style: {
-            background: "#18181c",
-            border: "1px solid #2c2c33",
-            color: "#e8e4da",
-            fontFamily: "var(--font-ui)",
-            fontSize: 12.5,
-          },
-        }}
-      />
-    </div>
+    </TooltipProvider>
   );
 }

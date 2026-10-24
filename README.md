@@ -16,15 +16,25 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 
 ## O que tem
 
-- **Editor CodeMirror 6** com cores por token, autocompletar (inclusive APIs do DOM), fechamento automático de tags e chaves, dobra de código, guias de indentação, multicursor, busca/substituição e seletor de cor nos valores CSS.
-- **Emmet**: `ul>li*3` + `Tab`, `!` + `Tab` para o esqueleto HTML.
-- **Preview ao vivo** com buffer duplo (não pisca e mantém a rolagem), modos tela cheia / tablet / celular com rotação, e janela destacada sincronizada.
-- **HTML + CSS + JS ligados de verdade**: `<link href="css/estilo.css">`, `<script src="js/app.js">`, `@import`, `url()`, imagens, `import`/`export` entre módulos ES e `fetch("dados.json")` funcionam com os arquivos do projeto.
-- **Console** com objetos expansíveis, contador de repetições, filtros, REPL que executa na página e link `arquivo:linha` que pula para o código (o erro também aparece sublinhado no editor).
-- **Importar** arquivos soltos ou uma pasta inteira (botão ou arrastar e soltar), como projeto novo ou mesclado.
-- **Exportar** o projeto em `.zip` ou como **HTML único** com tudo embutido.
-- **Projetos múltiplos** salvos localmente, com modelos (Gênese, Em branco, Canvas generativo, Módulos ES), duplicar, renomear, desfazer exclusão e backup/restauração em `.json`.
-- **Formatação com Prettier** (`Shift+Alt+F`), paleta de comandos e abertura rápida de arquivos.
+**Interface em Material Design 3** — navigation rail (Arquivos, Buscar, Projetos, Temas), top app bar, painéis em superfícies tonais arredondadas, chips de filtro, botões segmentados, switches, menus, diálogos, tooltips e snackbars no padrão M3, com ripple.
+
+**9 temas** que mudam interface e editor juntos: Tinta & Ouro (padrão), Drácula (paleta oficial), One Dark, Monokai, Nord, Tokyo Night, Catppuccin Mocha, Solarizado Claro e Papel & Ouro (claro).
+
+**Editor (CodeMirror 6)**
+- Realce de sintaxe por token, com **tags estruturais diferenciadas**: `<html>`, `<head>`, `<body>` e `<!DOCTYPE>` em destaque próprio e negrito; metadados (`meta`, `link`, `title`, `script`, `style`) em itálico; seções semânticas (`header`, `main`, `section`, `h1`…) e elementos customizados em cores próprias; faixas laterais marcam as regiões do head e do body.
+- Seleção sempre visível (com e sem foco), multicursor, dobra de código, guias de indentação, seletor de cor no CSS, Emmet.
+- **Autocompletar ampliado**: descrição em português de tags, atributos, propriedades CSS e APIs JS; classes e ids do CSS dentro de `class=""`/`id=""` e vice-versa nos seletores; caminhos do projeto em `href`, `src`, `url()`, `fetch()` e `import`; `var(--…)`, nomes de `@keyframes`, eventos de `addEventListener`, seletores em `querySelector` e `classList`, funções de outros arquivos JS e snippets (`log`, `qs`, `ael`, `fetchjson`, `forof`…).
+- **Definições**: cartão "o que é e para que serve" para tags, atributos, propriedades, pseudo-seletores e APIs — e, para classes, ids, variáveis e animações do projeto, onde são definidas e onde são usadas (clicáveis). Aparece ao passar o mouse, com `Alt+F1` ou pelo menu de contexto.
+- **Ir para definição** (`F12` / `Ctrl+clique`) e **renomear em todo o projeto** (`F2`) classes, ids, variáveis CSS e keyframes.
+- **Menu de contexto** com definição, ir para definição, renomear, mostrar o elemento no preview, recortar/copiar/colar, comentar, formatar, operações de linha, maiúsculas/minúsculas, dobrar/desdobrar, ações do Emmet e busca no projeto.
+
+**Projeto**
+- Pastas de verdade: criar, renomear, mover e excluir; arrastar arquivos e pastas entre elas; soltar arquivos do computador direto numa pasta.
+- Importar **adicionando** ao projeto (sem substituir nada — nomes repetidos ganham sufixo), **mesclando** ou como **projeto novo**, escolhendo a pasta de destino.
+- Busca e substituição em todos os arquivos.
+- Exportar em `.zip` (com pastas) ou HTML único; vários projetos, modelos, backup.
+
+**Preview e console**: preview ao vivo sem piscar, modos tablet/celular, janela destacada sincronizada, módulos ES e `fetch` de arquivos do projeto, console com objetos expansíveis, REPL e link `arquivo:linha`.
 
 ## Atalhos
 
@@ -33,6 +43,9 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 | Executar | `Ctrl+Enter` ou `Ctrl+S` |
 | Paleta de comandos | `Ctrl+K` |
 | Abrir arquivo | `Ctrl+P` |
+| Buscar no projeto | `Ctrl+Shift+F` |
+| Definição / ir para definição | `Alt+F1` / `F12` |
+| Renomear no projeto | `F2` |
 | Importar arquivos | `Ctrl+O` |
 | Formatar | `Shift+Alt+F` |
 | Buscar / substituir | `Ctrl+F` / `Ctrl+H` |
@@ -54,4 +67,4 @@ pnpm icons   # recorta a fonte Material Symbols só com os ícones usados (preci
 pnpm build   # gera a extensão em dist/
 ```
 
-Stack: React 19, TypeScript, Vite, Tailwind, shadcn/ui, CodeMirror 6, Emmet, Prettier, fflate. Fontes locais: Manrope, JetBrains Mono, Instrument Serif e Material Symbols Rounded.
+Stack: React 19, TypeScript, Vite, Tailwind, Radix/shadcn (reestilizado em Material 3), CodeMirror 6, Emmet, Prettier, fflate. Fontes locais: Roboto Flex, JetBrains Mono, Instrument Serif e Material Symbols Rounded. Descrições de reserva do MDN via `@vscode/web-custom-data` (`python3 design/build_mdn.py`).

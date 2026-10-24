@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { PFile } from "@/lib/types";
 import { Icon } from "./Icon";
+import { IconButton, PanelHeader } from "./md";
 import { fileIcon } from "./fileIcon";
 import { cn } from "@/lib/utils";
 import { bytes, dirName } from "@/lib/files";
@@ -10,6 +11,9 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
@@ -20,22 +24,28 @@ interface TreeNode {
   files: PFile[];
 }
 
-function buildTree(files: PFile[]): TreeNode {
+export function allFolders(files: PFile[], explicit: string[] = []) {
+  const set = new Set<string>();
+  const add = (p: string) => {
+    const parts = p.split("/");
+    for (let i = 1; i <= parts.length; i++) set.add(parts.slice(0, i).join("/"));
+  };
+  for (const f of files) if (f.name.includes("/")) add(dirName(f.name));
+  for (const d of explicit) if (d) add(d);
+  return [...set].sort();
+}
+
+function buildTree(files: PFile[], folders: string[]): TreeNode {
   const root: TreeNode = { name: "", path: "", dirs: [], files: [] };
-  for (const f of files) {
-    const parts = f.name.split("/");
-    let node = root;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const path = parts.slice(0, i + 1).join("/");
-      let next = node.dirs.find((d) => d.path === path);
-      if (!next) {
-        next = { name: parts[i], path, dirs: [], files: [] };
-        node.dirs.push(next);
-      }
-      node = next;
-    }
-    node.files.push(f);
-  }
+  const getDir = (path: string): TreeNode => {
+    if (!path) return root;
+    const parent = getDir(dirName(path));
+    let n = parent.dirs.find((d) => d.path === path);
+    if (!n) parent.dirs.push((n = { name: path.split("/").pop()!, path, dirs: [], files: [] }));
+    return n;
+  };
+  for (const d of folders) getDir(d);
+  for (const f of files) getDir(dirName(f.name)).files.push(f);
   const sort = (n: TreeNode) => {
     n.dirs.sort((a, b) => a.name.localeCompare(b.name));
     n.files.sort((a, b) => {
@@ -51,41 +61,58 @@ function buildTree(files: PFile[]): TreeNode {
   return root;
 }
 
+const DND = "application/x-poiesis";
+
 interface Props {
   projectName: string;
   files: PFile[];
+  folders: string[];
   activeId: string | null;
   entryId: string;
   onOpen(id: string): void;
   onCreate(name: string): void;
+  onCreateFolder(path: string): void;
   onRename(id: string, name: string): void;
+  onRenameFolder(from: string, to: string): void;
   onDelete(id: string): void;
+  onDeleteFolder(path: string): void;
   onDuplicate(id: string): void;
   onSetEntry(id: string): void;
   onDownload(id: string): void;
-  onImportFiles(): void;
-  onImportFolder(): void;
-  onCollapse(): void;
+  onMove(fileId: string, dir: string): void;
+  onMoveFolder(path: string, dir: string): void;
+  onAddFiles(dir: string): void;
+  onAddFolder(dir: string): void;
+  onDropExternal(dir: string, dt: DataTransfer): void;
+  onCopy(text: string): void;
 }
 
 export function Explorer(p: Props) {
-  const tree = useMemo(() => buildTree(p.files), [p.files]);
+  const folders = useMemo(() => allFolders(p.files, p.folders), [p.files, p.folders]);
+  const tree = useMemo(() => buildTree(p.files, folders), [p.files, folders]);
   const [closed, setClosed] = useState<Set<string>>(new Set());
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [creating, setCreating] = useState<string | null>(null); // diretório onde criar
+  const [renaming, setRenaming] = useState<string | null>(null); // id de arquivo ou "dir:caminho"
+  const [creating, setCreating] = useState<{ dir: string; folder: boolean } | null>(null);
   const [draft, setDraft] = useState("");
+  const [dropDir, setDropDir] = useState<string | null>(null);
 
   const total = useMemo(() => p.files.reduce((n, f) => n + f.content.length, 0), [p.files]);
 
-  const startCreate = (dir: string) => {
-    setCreating(dir);
+  const open = (dir: string) => dir && setClosed((s) => (s.delete(dir) ? new Set(s) : s));
+
+  const startCreate = (dir: string, folder: boolean) => {
+    setCreating({ dir, folder });
     setDraft("");
-    if (dir) setClosed((s) => (s.delete(dir), new Set(s)));
+    open(dir);
   };
 
   const commitCreate = () => {
-    const name = draft.trim().replace(/^\/+/, "");
-    if (name && creating !== null) p.onCreate((creating ? creating + "/" : "") + name);
+    const name = draft.trim().replace(/^\/+|\/+$/g, "");
+    if (name && creating) {
+      const full = (creating.dir ? creating.dir + "/" : "") + name;
+      if (creating.folder) p.onCreateFolder(full);
+      else p.onCreate(full);
+    }
     setCreating(null);
   };
 
@@ -95,6 +122,52 @@ export function Explorer(p: Props) {
     if (name && name !== f.name.split("/").pop()) p.onRename(f.id, name.includes("/") ? name : (dir ? dir + "/" : "") + name);
     setRenaming(null);
   };
+
+  const commitRenameDir = (path: string) => {
+    const name = draft.trim().replace(/^\/+|\/+$/g, "");
+    const parent = dirName(path);
+    if (name && name !== path.split("/").pop()) p.onRenameFolder(path, (parent ? parent + "/" : "") + name);
+    setRenaming(null);
+  };
+
+  /* ---------- arrastar e soltar ---------- */
+  const dropProps = (dir: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      const types = Array.from(e.dataTransfer.types);
+      if (!types.includes(DND) && !types.includes("Files")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = types.includes("Files") ? "copy" : "move";
+      if (dropDir !== dir) setDropDir(dir);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setDropDir((d) => (d === dir ? null : d));
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDropDir(null);
+      const raw = e.dataTransfer.getData(DND);
+      if (raw) {
+        const d = JSON.parse(raw) as { t: "file" | "dir"; v: string };
+        if (d.t === "file") p.onMove(d.v, dir);
+        else if (d.v !== dir && !dir.startsWith(d.v + "/")) p.onMoveFolder(d.v, dir);
+        return;
+      }
+      if (e.dataTransfer.types.includes("Files")) {
+        open(dir);
+        p.onDropExternal(dir, e.dataTransfer);
+      }
+    },
+  });
+
+  const dragProps = (t: "file" | "dir", v: string) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.setData(DND, JSON.stringify({ t, v }));
+      e.dataTransfer.effectAllowed = "move";
+    },
+  });
 
   const input = (onCommit: () => void, onCancel: () => void, placeholder: string) => (
     <input
@@ -112,9 +185,11 @@ export function Explorer(p: Props) {
         const dot = v.lastIndexOf(".");
         e.currentTarget.setSelectionRange(0, dot > 0 ? dot : v.length);
       }}
-      className="h-[22px] min-w-0 flex-1 rounded-[4px] border border-[var(--gold-lo)] bg-[var(--ink-0)] px-1.5 font-code text-[12px] text-[var(--paper)] outline-none"
+      className="md-field h-7 min-w-0 flex-1 rounded-md px-2 font-code text-[12px]"
     />
   );
+
+  const moveTargets = (exclude?: string) => ["", ...folders].filter((d) => d !== exclude);
 
   const renderFile = (f: PFile, depth: number) => {
     const { icon, color } = fileIcon(f);
@@ -122,8 +197,8 @@ export function Explorer(p: Props) {
     const active = f.id === p.activeId;
     if (renaming === f.id) {
       return (
-        <div key={f.id} className="flex h-[26px] items-center gap-1.5 pr-2" style={{ paddingLeft: 10 + depth * 12 }}>
-          <span className="msr shrink-0" style={{ fontSize: 16, color }}>
+        <div key={f.id} className="flex h-8 items-center gap-2 pr-2" style={{ paddingLeft: 14 + depth * 14 }}>
+          <span className="msr shrink-0" style={{ fontSize: 17, color }}>
             {icon}
           </span>
           {input(() => commitRename(f), () => setRenaming(null), short)}
@@ -134,32 +209,26 @@ export function Explorer(p: Props) {
       <ContextMenu key={f.id}>
         <ContextMenuTrigger asChild>
           <button
+            {...dragProps("file", f.id)}
             onClick={() => p.onOpen(f.id)}
             onDoubleClick={() => {
               setRenaming(f.id);
               setDraft(short);
             }}
-            className={cn(
-              "group relative flex h-[26px] w-full items-center gap-2 pr-2 text-left transition-colors",
-              active ? "bg-[var(--ink-4)] text-[var(--paper)]" : "text-[var(--paper-2)] hover:bg-[var(--ink-3)] hover:text-[var(--paper)]"
-            )}
-            style={{ paddingLeft: 12 + depth * 12 }}
+            data-on={active}
+            className="md-item h-8 pr-2"
+            style={{ paddingLeft: 14 + depth * 14 }}
           >
-            {active && <span className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-[var(--gold)]" />}
-            <span className="msr shrink-0" style={{ fontSize: 16, color }}>
+            <span className="msr shrink-0" style={{ fontSize: 17, color }}>
               {icon}
             </span>
-            <span className="truncate font-code text-[12px]">{short}</span>
-            {f.id === p.entryId && (
-              <span title="Página principal" className="ml-auto">
-                <Icon name="home" size={13} fill className="text-[var(--gold-lo)]" />
-              </span>
-            )}
+            <span className={cn("truncate font-code text-[12.5px]", active && "font-medium")}>{short}</span>
+            {f.id === p.entryId && <Icon name="home" size={14} fill className="ml-auto text-md-primary" title="Página principal" />}
           </button>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-56">
+        <ContextMenuContent className="w-60">
           <ContextMenuItem onSelect={() => p.onOpen(f.id)}>
-            <Icon name="edit" size={16} className="mr-2" /> Abrir
+            <Icon name="open_in_browser" size={19} /> Abrir
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
@@ -167,69 +236,141 @@ export function Explorer(p: Props) {
               setDraft(short);
             }}
           >
-            <Icon name="drive_file_rename_outline" size={16} className="mr-2" /> Renomear
+            <Icon name="edit" size={19} /> Renomear
             <ContextMenuShortcut>F2</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => p.onDuplicate(f.id)}>
-            <Icon name="content_copy" size={16} className="mr-2" /> Duplicar
+            <Icon name="content_copy" size={19} /> Duplicar
           </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <Icon name="drive_file_move" size={19} /> Mover para
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent className="max-h-72 w-52">
+              {moveTargets(dirName(f.name)).map((d) => (
+                <ContextMenuItem key={d || "/"} onSelect={() => p.onMove(f.id, d)} className="font-code text-[12px]">
+                  <Icon name={d ? "folder" : "home_storage"} size={18} /> {d || "raiz do projeto"}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
           {f.kind === "html" && f.id !== p.entryId && (
             <ContextMenuItem onSelect={() => p.onSetEntry(f.id)}>
-              <Icon name="home" size={16} className="mr-2" /> Definir como página principal
+              <Icon name="home" size={19} /> Definir como página principal
             </ContextMenuItem>
           )}
+          <ContextMenuItem onSelect={() => p.onCopy(f.name)}>
+            <Icon name="link" size={19} /> Copiar caminho
+          </ContextMenuItem>
           <ContextMenuItem onSelect={() => p.onDownload(f.id)}>
-            <Icon name="download" size={16} className="mr-2" /> Baixar arquivo
+            <Icon name="download" size={19} /> Baixar arquivo
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem className="text-[var(--rose)] focus:text-[var(--rose)]" onSelect={() => p.onDelete(f.id)}>
-            <Icon name="delete" size={16} className="mr-2" /> Excluir
+          <ContextMenuItem className="text-md-error [&_.msr]:!text-md-error" onSelect={() => p.onDelete(f.id)}>
+            <Icon name="delete" size={19} /> Excluir
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
     );
   };
 
+  const creatingRow = (dir: string, depth: number) =>
+    creating?.dir === dir ? (
+      <div className="flex h-8 items-center gap-2 pr-2" style={{ paddingLeft: 14 + depth * 14 }}>
+        <Icon name={creating.folder ? "create_new_folder" : "note_add"} size={17} className="text-md-primary" />
+        {input(commitCreate, () => setCreating(null), creating.folder ? "nome-da-pasta" : "arquivo.css")}
+      </div>
+    ) : null;
+
   const renderDir = (d: TreeNode, depth: number): React.ReactNode => {
     const isClosed = closed.has(d.path);
+    const isDrop = dropDir === d.path;
     return (
-      <div key={d.path}>
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <button
-              onClick={() =>
-                setClosed((s) => {
-                  const n = new Set(s);
-                  if (n.has(d.path)) n.delete(d.path);
-                  else n.add(d.path);
-                  return n;
-                })
-              }
-              className="flex h-[26px] w-full items-center gap-1 pr-2 text-left text-[var(--paper-2)] hover:bg-[var(--ink-3)] hover:text-[var(--paper)]"
-              style={{ paddingLeft: 6 + depth * 12 }}
-            >
-              <Icon name={isClosed ? "chevron_right" : "keyboard_arrow_down"} size={16} className="text-[var(--paper-3)]" />
-              <Icon name={isClosed ? "folder" : "folder_open"} size={16} fill={isClosed} className="text-[var(--gold-lo)]" />
-              <span className="ml-1 truncate font-code text-[12px]">{d.name}</span>
-            </button>
-          </ContextMenuTrigger>
-          <ContextMenuContent className="w-52">
-            <ContextMenuItem onSelect={() => startCreate(d.path)}>
-              <Icon name="note_add" size={16} className="mr-2" /> Novo arquivo aqui
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+      <div key={d.path} {...dropProps(d.path)} className={cn("rounded-2xl transition-colors", isDrop && "bg-[color-mix(in_oklab,var(--md-primary)_12%,transparent)] outline outline-1 outline-md-primary")}>
+        {renaming === "dir:" + d.path ? (
+          <div className="flex h-8 items-center gap-2 pr-2" style={{ paddingLeft: 8 + depth * 14 }}>
+            <Icon name="folder" size={17} fill className="text-md-primary" />
+            {input(() => commitRenameDir(d.path), () => setRenaming(null), d.name)}
+          </div>
+        ) : (
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <button
+                {...dragProps("dir", d.path)}
+                onClick={() =>
+                  setClosed((s) => {
+                    const n = new Set(s);
+                    if (n.has(d.path)) n.delete(d.path);
+                    else n.add(d.path);
+                    return n;
+                  })
+                }
+                className="md-item h-8 gap-1 pr-2"
+                style={{ paddingLeft: 6 + depth * 14 }}
+              >
+                <Icon name={isClosed ? "chevron_right" : "keyboard_arrow_down"} size={18} className="text-md-outline" />
+                <Icon name={isClosed ? "folder" : "folder_open"} size={17} fill={isClosed} className="text-md-primary" />
+                <span className="ml-1.5 truncate font-code text-[12.5px] text-md-on-surface">{d.name}</span>
+              </button>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-60">
+              <ContextMenuItem onSelect={() => startCreate(d.path, false)}>
+                <Icon name="note_add" size={19} /> Novo arquivo aqui
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => startCreate(d.path, true)}>
+                <Icon name="create_new_folder" size={19} /> Nova subpasta
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={() => p.onAddFiles(d.path)}>
+                <Icon name="upload_file" size={19} /> Adicionar arquivos aqui
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => p.onAddFolder(d.path)}>
+                <Icon name="drive_folder_upload" size={19} /> Adicionar pasta aqui
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onSelect={() => {
+                  setRenaming("dir:" + d.path);
+                  setDraft(d.name);
+                }}
+              >
+                <Icon name="edit" size={19} /> Renomear pasta
+              </ContextMenuItem>
+              <ContextMenuSub>
+                <ContextMenuSubTrigger>
+                  <Icon name="drive_file_move" size={19} /> Mover para
+                </ContextMenuSubTrigger>
+                <ContextMenuSubContent className="max-h-72 w-52">
+                  {moveTargets(dirName(d.path))
+                    .filter((t) => t !== d.path && !t.startsWith(d.path + "/"))
+                    .map((t) => (
+                      <ContextMenuItem key={t || "/"} onSelect={() => p.onMoveFolder(d.path, t)} className="font-code text-[12px]">
+                        <Icon name={t ? "folder" : "home_storage"} size={18} /> {t || "raiz do projeto"}
+                      </ContextMenuItem>
+                    ))}
+                </ContextMenuSubContent>
+              </ContextMenuSub>
+              <ContextMenuItem onSelect={() => p.onCopy(d.path + "/")}>
+                <Icon name="link" size={19} /> Copiar caminho
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem className="text-md-error [&_.msr]:!text-md-error" onSelect={() => p.onDeleteFolder(d.path)}>
+                <Icon name="folder_delete" size={19} /> Excluir pasta
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        )}
         {!isClosed && (
           <div className="relative">
-            <span className="absolute bottom-0 top-0 w-px bg-[var(--line)]" style={{ left: 13 + depth * 12 }} />
-            {creating === d.path && (
-              <div className="flex h-[26px] items-center gap-1.5 pr-2" style={{ paddingLeft: 12 + (depth + 1) * 12 }}>
-                <Icon name="note_add" size={16} className="text-[var(--gold)]" />
-                {input(commitCreate, () => setCreating(null), "arquivo.css")}
-              </div>
-            )}
+            <span className="absolute bottom-1 top-0 w-px bg-md-outline-v" style={{ left: 15 + depth * 14 }} />
+            {creatingRow(d.path, depth + 1)}
             {d.dirs.map((x) => renderDir(x, depth + 1))}
             {d.files.map((f) => renderFile(f, depth + 1))}
+            {!d.dirs.length && !d.files.length && creating?.dir !== d.path && (
+              <div className="flex h-7 items-center text-[11.5px] italic text-md-outline" style={{ paddingLeft: 28 + depth * 14 }}>
+                vazia — arraste arquivos para cá
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -237,42 +378,49 @@ export function Explorer(p: Props) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[var(--ink-1)]">
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-[var(--line)] pl-3 pr-1.5">
-        <span className="eyebrow flex-1">Arquivos</span>
-        <button className="tool" title="Novo arquivo" onClick={() => startCreate("")}>
-          <Icon name="note_add" size={17} />
-        </button>
-        <button className="tool" title="Importar arquivos" onClick={p.onImportFiles}>
-          <Icon name="upload_file" size={17} />
-        </button>
-        <button className="tool" title="Importar pasta" onClick={p.onImportFolder}>
-          <Icon name="drive_folder_upload" size={17} />
-        </button>
-        <button className="tool" title="Esconder barra lateral (Ctrl+B)" onClick={p.onCollapse}>
-          <Icon name="left_panel_close" size={17} />
-        </button>
-      </div>
+    <div className="flex h-full flex-col" data-explorer>
+      <PanelHeader title="Arquivos">
+        <IconButton icon="note_add" label="Novo arquivo" size="sm" onClick={() => startCreate("", false)} />
+        <IconButton icon="create_new_folder" label="Nova pasta" size="sm" onClick={() => startCreate("", true)} />
+        <IconButton icon="upload_file" label="Adicionar arquivos" size="sm" onClick={() => p.onAddFiles("")} />
+        <IconButton icon="drive_folder_upload" label="Adicionar pasta" size="sm" onClick={() => p.onAddFolder("")} />
+      </PanelHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1.5">
-        {creating === "" && (
-          <div className="flex h-[26px] items-center gap-1.5 pl-3 pr-2">
-            <Icon name="note_add" size={16} className="text-[var(--gold)]" />
-            {input(commitCreate, () => setCreating(null), "nome.html, css/estilo.css…")}
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            {...dropProps("")}
+            className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-3", dropDir === "" && "bg-[color-mix(in_oklab,var(--md-primary)_6%,transparent)]")}
+          >
+            {creatingRow("", 0)}
+            {tree.dirs.map((d) => renderDir(d, 0))}
+            {tree.files.map((f) => renderFile(f, 0))}
+
+            <div className="md-card-outlined mx-1 mt-4 border-dashed px-3 py-3 text-[11.5px] leading-relaxed text-md-on-variant">
+              <Icon name="move_to_inbox" size={18} className="mb-1 block text-md-outline" />
+              Arraste arquivos ou pastas para cá — ou para dentro de uma pasta. Arraste itens entre pastas para movê-los.
+            </div>
           </div>
-        )}
-        {tree.dirs.map((d) => renderDir(d, 0))}
-        {tree.files.map((f) => renderFile(f, 0))}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-56">
+          <ContextMenuItem onSelect={() => startCreate("", false)}>
+            <Icon name="note_add" size={19} /> Novo arquivo
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => startCreate("", true)}>
+            <Icon name="create_new_folder" size={19} /> Nova pasta
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onSelect={() => p.onAddFiles("")}>
+            <Icon name="upload_file" size={19} /> Adicionar arquivos
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => p.onAddFolder("")}>
+            <Icon name="drive_folder_upload" size={19} /> Adicionar pasta
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
-        <div className="mx-3 mt-4 rounded-lg border border-dashed border-[var(--line-2)] px-3 py-3 text-[11.5px] leading-relaxed text-[var(--paper-3)]">
-          <Icon name="move_to_inbox" size={16} className="mb-1 block text-[var(--paper-3)]" />
-          Arraste arquivos ou uma pasta inteira para cá. O HTML encontra seus <span className="font-code">.css</span> e{" "}
-          <span className="font-code">.js</span> sozinho.
-        </div>
-      </div>
-
-      <div className="flex h-8 shrink-0 items-center gap-2 border-t border-[var(--line)] px-3 text-[11px] text-[var(--paper-3)]">
-        <Icon name="inventory_2" size={14} />
+      <div className="flex h-9 shrink-0 items-center gap-2 border-t border-md-outline-v px-4 text-[11.5px] text-md-on-variant">
+        <Icon name="inventory_2" size={15} />
         <span className="truncate">{p.projectName}</span>
         <span className="ml-auto shrink-0 tabular-nums">
           {p.files.length} · {bytes(total)}

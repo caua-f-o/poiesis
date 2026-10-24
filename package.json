@@ -1,7 +1,7 @@
 {
   "name": "poiesis",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,7 +23,7 @@
     "@codemirror/view": "^6.43.15",
     "@emmetio/codemirror6-plugin": "^0.4.1",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
-    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource-variable/roboto-flex": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
     "@hookform/resolvers": "^6.0.0",
     "@lezer/highlight": "^1.2.5",
@@ -55,6 +55,7 @@
     "@radix-ui/react-tooltip": "^1.4.1",
     "@replit/codemirror-css-color-picker": "^6.3.0",
     "@replit/codemirror-indentation-markers": "^6.5.3",
+    "@vscode/web-custom-data": "^0.6.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

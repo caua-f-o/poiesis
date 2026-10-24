@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LogEntry, LogLevel, Ser } from "@/lib/types";
 import { Icon } from "./Icon";
+import { IconButton } from "./md";
 import { cn } from "@/lib/utils";
 
 /* ---------------- valores ---------------- */
@@ -8,32 +9,32 @@ import { cn } from "@/lib/utils";
 function Preview({ v, top }: { v: Ser; top?: boolean }) {
   switch (v.t) {
     case "str":
-      return top ? <span className="whitespace-pre-wrap break-words text-[var(--paper)]">{v.v}</span> : <span className="text-[#a9d18e]">"{v.v.length > 60 ? v.v.slice(0, 60) + "…" : v.v}"</span>;
+      return top ? <span className="whitespace-pre-wrap break-words text-[var(--paper)]">{v.v}</span> : <span className="text-[var(--syn-string)]">"{v.v.length > 60 ? v.v.slice(0, 60) + "…" : v.v}"</span>;
     case "num":
-      return <span className="text-[#d6a7f2]">{v.v}</span>;
+      return <span className="text-[var(--syn-number)]">{v.v}</span>;
     case "bool":
-      return <span className="text-[#e3a868]">{String(v.v)}</span>;
+      return <span className="text-[var(--syn-keyword)]">{String(v.v)}</span>;
     case "null":
       return <span className="text-[var(--paper-3)]">null</span>;
     case "undef":
       return <span className="text-[var(--paper-3)]">undefined</span>;
     case "sym":
-      return <span className="text-[#e98fb0]">{v.v}</span>;
+      return <span className="text-[var(--syn-control)]">{v.v}</span>;
     case "fn":
       return (
         <span>
-          <span className="italic text-[#e3a868]">ƒ</span> <span className="text-[#74cfd9]">{v.v}</span>
+          <span className="italic text-[var(--syn-keyword)]">ƒ</span> <span className="text-[var(--syn-fn)]">{v.v}</span>
           <span className="text-[var(--paper-3)]">()</span>
         </span>
       );
     case "err":
       return <span className="text-[var(--rose)]">{v.n}: {v.v}</span>;
     case "el":
-      return <span className="text-[#ef8b7a]">{v.v}</span>;
+      return <span className="text-[var(--syn-tag)]">{v.v}</span>;
     case "date":
-      return <span className="text-[#c9a3ee]">{v.v}</span>;
+      return <span className="text-[var(--syn-value)]">{v.v}</span>;
     case "re":
-      return <span className="text-[#ef8b7a]">{v.v}</span>;
+      return <span className="text-[var(--syn-tag)]">{v.v}</span>;
     case "circ":
       return <span className="text-[var(--paper-3)]">[circular]</span>;
     case "more":
@@ -69,12 +70,12 @@ function Preview({ v, top }: { v: Ser; top?: boolean }) {
     case "obj":
       return (
         <span>
-          {v.c !== "Object" && <span className="text-[#7fd8b8]">{v.c} </span>}
+          {v.c !== "Object" && <span className="text-[var(--syn-type)]">{v.c} </span>}
           {"{"}
           {v.e.slice(0, 5).map(([k, x], i) => (
             <span key={k}>
               {i > 0 && ", "}
-              <span className="text-[#8cc7ec]">{k}</span>: <Preview v={x} />
+              <span className="text-[var(--syn-prop)]">{k}</span>: <Preview v={x} />
             </span>
           ))}
           {(v.e.length > 5 || v.x) && ", …"}
@@ -106,11 +107,11 @@ function Value({ v, top, label }: { v: Ser; top?: boolean; label?: React.ReactNo
         </span>
       </button>
       {open && (
-        <span className="block border-l border-[var(--line-2)] pl-3 ml-[3px]">
+        <span className="block border-l border-md-outline-v pl-3 ml-[3px]">
           {v.t === "obj" &&
             v.e.map(([k, x]) => (
               <span key={k} className="block">
-                <Value v={x} label={<><span className="text-[#8cc7ec]">{k}</span>: </>} />
+                <Value v={x} label={<><span className="text-[var(--syn-prop)]">{k}</span>: </>} />
               </span>
             ))}
           {v.t === "arr" &&
@@ -139,11 +140,11 @@ const LEVEL: Record<LogLevel, { icon: string; cls: string; row: string }> = {
   log: { icon: "", cls: "text-[var(--paper)]", row: "" },
   debug: { icon: "", cls: "text-[var(--paper-2)]", row: "" },
   info: { icon: "info", cls: "text-[var(--sky)]", row: "" },
-  warn: { icon: "warning", cls: "text-[var(--amber)]", row: "bg-[#e6b450]/[.06] border-[#e6b450]/20" },
-  error: { icon: "error", cls: "text-[var(--rose)]", row: "bg-[#ec8a80]/[.07] border-[#ec8a80]/20" },
+  warn: { icon: "warning", cls: "text-[var(--amber)]", row: "bg-md-warn-c" },
+  error: { icon: "error", cls: "text-[var(--rose)]", row: "bg-md-error-c" },
   result: { icon: "keyboard_return", cls: "text-[var(--paper-2)]", row: "" },
   input: { icon: "chevron_right", cls: "text-[var(--gold)]", row: "" },
-  system: { icon: "auto_awesome", cls: "text-[var(--paper-3)] italic", row: "" },
+  system: { icon: "info", cls: "text-[var(--paper-3)] italic", row: "" },
 };
 
 type Filter = "all" | "error" | "warn" | "log";
@@ -195,9 +196,9 @@ export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile
   };
 
   return (
-    <div className="flex h-full flex-col bg-[var(--ink-1)]">
-      <div className="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--line)] px-2">
-        <span className="eyebrow mr-2 pl-1">Console</span>
+    <div className="flex h-full flex-col">
+      <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-md-outline-v pl-4 pr-2">
+        <span className="md-title-s mr-2">Console</span>
         {(
           [
             ["all", "Tudo", null],
@@ -206,22 +207,17 @@ export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile
             ["log", "Logs", null],
           ] as const
         ).map(([k, label, n]) => (
-          <button key={k} className="tool h-6 px-2" data-on={filter === k} onClick={() => setFilter(k)}>
+          <button key={k} className="md-chip" data-on={filter === k} onClick={() => setFilter(k)}>
+            {filter === k && <Icon name="check" size={16} />}
             {label}
             {!!n && (
-              <span className={cn("rounded px-1 text-[10px] font-semibold tabular-nums", k === "error" ? "bg-[var(--rose)]/15 text-[var(--rose)]" : "bg-[var(--amber)]/15 text-[var(--amber)]")}>
-                {n}
-              </span>
+              <span className={cn("rounded-full px-1.5 text-[10px] font-bold tabular-nums", k === "error" ? "bg-md-error text-md-surface" : "bg-md-warn text-md-surface")}>{n}</span>
             )}
           </button>
         ))}
         <div className="flex-1" />
-        <button className="tool h-6" title="Limpar console (Ctrl+L)" onClick={onClear}>
-          <Icon name="block" size={16} />
-        </button>
-        <button className="tool h-6" title="Esconder console (Ctrl+J)" onClick={onClose}>
-          <Icon name="keyboard_arrow_down" size={18} />
-        </button>
+        <IconButton icon="block" label="Limpar console" shortcut="Ctrl+L" size="sm" onClick={onClear} />
+        <IconButton icon="keyboard_arrow_down" label="Esconder console" shortcut="Ctrl+J" size="sm" onClick={onClose} />
       </div>
 
       <div
@@ -241,12 +237,12 @@ export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile
           const lv = LEVEL[l.level];
           const src = l.src && knownFile(l.src.file) ? l.src : null;
           return (
-            <div key={l.id} className={cn("group flex items-start gap-2 border-y border-transparent px-3 py-[3px]", lv.row)}>
+            <div key={l.id} className={cn("group mx-1.5 flex items-start gap-2 rounded-lg px-2.5 py-[3px]", lv.row)}>
               <span className="mt-[3px] flex w-4 shrink-0 justify-center">
                 {lv.icon ? <Icon name={lv.icon} size={14} fill={l.level === "error" || l.level === "warn"} className={lv.cls} /> : null}
               </span>
               {l.count > 1 && (
-                <span className="mt-[2px] shrink-0 rounded-full bg-[var(--ink-5)] px-1.5 text-[10px] font-semibold leading-[16px] text-[var(--paper-2)] tabular-nums">
+                <span className="mt-[2px] shrink-0 rounded-full bg-md-highest px-1.5 text-[10px] font-semibold leading-[16px] text-[var(--paper-2)] tabular-nums">
                   {l.count}
                 </span>
               )}
@@ -274,7 +270,7 @@ export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile
         })}
       </div>
 
-      <div className="flex shrink-0 items-start gap-2 border-t border-[var(--line)] px-3 py-1.5">
+      <div className="flex shrink-0 items-start gap-2 border-t border-md-outline-v px-4 py-2">
         <Icon name="chevron_right" size={16} className="mt-[3px] text-[var(--gold)]" />
         <textarea
           value={input}

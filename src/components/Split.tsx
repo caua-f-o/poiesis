@@ -63,9 +63,14 @@ export function Split({ dir, size, onSize, min = 15, max = 85, a, b, className, 
         aria-orientation={dir === "row" ? "vertical" : "horizontal"}
         onPointerDown={start}
         onDoubleClick={() => onSize(50)}
-        className={cn("split-handle group relative z-20 shrink-0", hide && "hidden", dir === "row" ? "w-px cursor-col-resize" : "h-px cursor-row-resize", drag && "is-dragging")}
+        className={cn(
+          "split-handle group relative z-20 flex shrink-0 items-center justify-center",
+          hide && "hidden",
+          dir === "row" ? "w-2 cursor-col-resize" : "h-2 cursor-row-resize",
+          drag && "is-dragging"
+        )}
       >
-        <span className={cn("absolute", dir === "row" ? "inset-y-0 -left-[3px] w-[7px]" : "inset-x-0 -top-[3px] h-[7px]")} />
+        <span className={cn("grip rounded-full", dir === "row" ? "h-10 w-1" : "h-1 w-10")} />
       </div>
       <div className={cn("relative min-h-0 min-w-0 flex-1 overflow-hidden", hide === "b" && "hidden")}>{b}</div>
       {drag && <div className={cn("fixed inset-0 z-50", dir === "row" ? "cursor-col-resize" : "cursor-row-resize")} />}

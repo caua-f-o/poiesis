@@ -58,6 +58,7 @@
       if (e.source !== window.parent) return;
       if (d.type === "render") render(String(d.html || ""), !!d.hard);
       else if (d.type === "eval" && current) current.contentWindow.postMessage({ __poiesisEval: String(d.code) }, "*");
+      else if (d.type === "highlight" && current) current.contentWindow.postMessage({ __poiesisHighlight: String(d.selector) }, "*");
       return;
     }
     if (d.__poiesis) {

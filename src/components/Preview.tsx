@@ -2,11 +2,13 @@ import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, us
 import type { Device, PFile } from "@/lib/types";
 import { Icon } from "./Icon";
 import { cn } from "@/lib/utils";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { IconButton, Tip } from "./md";
 
 export interface PreviewHandle {
   eval(code: string): void;
   reload(): void;
+  highlight(selector: string): void;
 }
 
 const DEVICES: Record<Exclude<Device, "full">, { w: number; h: number; label: string }> = {
@@ -52,6 +54,7 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
   useImperativeHandle(ref, () => ({
     eval: (code) => send({ __poiesisHost: 1, type: "eval", code }),
     reload: () => send({ __poiesisHost: 1, type: "render", html: htmlRef.current, hard: true }),
+    highlight: (selector) => send({ __poiesisHost: 1, type: "highlight", selector }),
   }));
 
   useLayoutEffect(() => {
@@ -70,73 +73,75 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
 
   const htmlPages = p.pages;
 
+  const reload = () => send({ __poiesisHost: 1, type: "render", html: p.html, hard: true });
+
   return (
-    <div className="flex h-full flex-col bg-[var(--ink-1)]">
+    <div className="flex h-full flex-col">
       {/* barra do preview */}
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-[var(--line)] px-2">
+      <div className="flex h-11 shrink-0 items-center gap-1 border-b border-md-outline-v px-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="group flex h-7 min-w-[120px] max-w-[380px] flex-1 items-center gap-2 rounded-md border border-[var(--line-2)] bg-[var(--ink-0)] px-2 text-left transition-colors hover:border-[var(--gold-lo)]">
-              <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", p.busy ? "pulse-dot bg-[var(--gold)]" : p.errors ? "bg-[var(--rose)]" : "bg-[var(--verd)]")} />
-              <span className="truncate font-code text-[11.5px] text-[var(--paper-2)]">
-                <span className="text-[var(--paper-3)]">poiesis://</span>
+            <button className="md-search h-8 min-w-[120px] max-w-[380px] flex-1 gap-2 pl-3 pr-2 text-left">
+              <span className={cn("h-2 w-2 shrink-0 rounded-full", p.busy ? "pulse-dot bg-md-primary" : p.errors ? "bg-md-error" : "bg-md-success")} />
+              <span className="truncate font-code text-[11.5px] text-md-on-surface">
+                <span className="text-md-outline">poiesis://</span>
                 {p.page?.name ?? "—"}
               </span>
-              <Icon name="unfold_more" size={14} className="ml-auto text-[var(--paper-3)] group-hover:text-[var(--paper-2)]" />
+              <Icon name="unfold_more" size={16} className="ml-auto text-md-outline" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[220px]">
-            {htmlPages.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma página HTML</div>}
+          <DropdownMenuContent align="start" className="min-w-[240px]">
+            <DropdownMenuLabel>Páginas do projeto</DropdownMenuLabel>
+            {htmlPages.length === 0 && <div className="px-4 py-1.5 text-xs text-md-on-variant">Nenhuma página HTML</div>}
             {htmlPages.map((f) => (
-              <DropdownMenuItem key={f.id} onSelect={() => p.onPage(f.id)} className="gap-2 font-code text-[12px]">
-                <Icon name="html" size={16} className="text-[var(--rose)]" />
+              <DropdownMenuItem key={f.id} onSelect={() => p.onPage(f.id)} className="font-code text-[12px]">
+                <Icon name="html" size={18} className="!text-syn-tag" />
                 {f.name}
-                {f.id === p.page?.id && <Icon name="check" size={15} className="ml-auto text-[var(--gold)]" />}
+                {f.id === p.page?.id && <Icon name="check" size={17} className="ml-auto !text-md-primary" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="ml-1 hidden shrink-0 font-code text-[10.5px] tabular-nums text-[var(--paper-3)] xl:inline">
+        <span className="ml-1 hidden shrink-0 font-code text-[10.5px] tabular-nums text-md-outline 2xl:inline">
           {dev ? `${dw}×${dh} · ${Math.round(scale * 100)}%` : `${size.w}×${size.h}`}
           {p.loadMs != null && !p.busy && <span className="ml-2">{p.loadMs} ms</span>}
         </span>
 
-        <div className="ml-auto flex items-center rounded-md bg-[var(--ink-0)] p-0.5">
+        <div className="md-seg ml-auto h-7">
           {(
             [
               ["full", "desktop_windows", "Tela cheia"],
-              ["tablet", "tablet_mac", "Tablet (820×1180)"],
-              ["mobile", "smartphone", "Celular (390×844)"],
+              ["tablet", "tablet_mac", "Tablet · 820×1180"],
+              ["mobile", "smartphone", "Celular · 390×844"],
             ] as const
           ).map(([d, icon, title]) => (
-            <button key={d} className="tool h-6 min-w-6 px-1" data-on={p.device === d} title={title} onClick={() => p.onDevice(d)}>
-              <Icon name={icon} size={16} />
-            </button>
+            <Tip key={d} label={title}>
+              <button data-on={p.device === d} onClick={() => p.onDevice(d)} aria-label={title} className="!min-w-[32px] !px-1.5">
+                <Icon name={icon} size={16} />
+              </button>
+            </Tip>
           ))}
         </div>
-        <button className="tool" title="Girar dispositivo" disabled={!dev} onClick={p.onLandscape}>
-          <Icon name="screen_rotation" size={17} />
-        </button>
-        <button className="tool" title="Recarregar (Ctrl+R)" onClick={() => send({ __poiesisHost: 1, type: "render", html: p.html, hard: true })}>
-          <Icon name="refresh" size={18} />
-        </button>
-        {p.canPopout && (
-          <button className="tool" title="Abrir preview em nova aba (sincronizada)" onClick={p.onPopout}>
-            <Icon name="open_in_new" size={17} />
-          </button>
-        )}
-        <button className="tool" title="Baixar HTML único" onClick={p.onExportHtml}>
-          <Icon name="download" size={17} />
-        </button>
-        <button className="tool relative" title="Console (Ctrl+J)" data-on={p.consoleOpen} onClick={p.onToggleConsole}>
-          <Icon name="terminal" size={17} />
-          {p.errors + p.warns > 0 && (
-            <span className={cn("absolute -right-0.5 -top-0.5 min-w-[14px] rounded-full px-1 text-[9px] font-bold leading-[14px] text-[var(--ink-0)] tabular-nums", p.errors ? "bg-[var(--rose)]" : "bg-[var(--amber)]")}>
-              {p.errors + p.warns > 99 ? "99+" : p.errors + p.warns}
-            </span>
-          )}
-        </button>
+        <IconButton icon="screen_rotation" label="Girar dispositivo" size="sm" disabled={!dev} onClick={p.onLandscape} />
+        <IconButton icon="refresh" label="Recarregar" shortcut="Ctrl+R" size="sm" onClick={reload} />
+        {p.canPopout && <IconButton icon="open_in_new" label="Abrir em nova aba (sincronizada)" size="sm" onClick={p.onPopout} />}
+        <IconButton icon="download" label="Baixar HTML único" size="sm" onClick={p.onExportHtml} />
+        <IconButton
+          icon="terminal"
+          label="Console"
+          shortcut="Ctrl+J"
+          size="sm"
+          on={p.consoleOpen}
+          onClick={p.onToggleConsole}
+          badge={
+            p.errors + p.warns > 0 ? (
+              <span className={cn("absolute right-0 top-0 min-w-[16px] rounded-full px-1 text-[9.5px] font-bold leading-4 text-md-surface tabular-nums", p.errors ? "bg-md-error" : "bg-md-warn")}>
+                {p.errors + p.warns > 99 ? "99+" : p.errors + p.warns}
+              </span>
+            ) : undefined
+          }
+        />
       </div>
 
       {/* palco */}
@@ -152,13 +157,13 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
             onLoad={() => setReady(true)}
             className={cn(
               "block h-full w-full border-0 bg-white",
-              dev && "rounded-[18px] shadow-[0_0_0_10px_#1d1d22,0_0_0_11px_#2c2c33,0_30px_80px_-20px_rgba(0,0,0,.8)]",
+              dev && "rounded-[22px] shadow-[0_0_0_10px_var(--md-surface-container-highest),0_0_0_11px_var(--md-outline-variant),0_30px_80px_-20px_rgba(0,0,0,.6)]",
               p.dragging && "pointer-events-none"
             )}
           />
         </div>
         {dev && (
-          <div className="pointer-events-none absolute bottom-2 left-0 right-0 text-center font-code text-[10.5px] text-[var(--paper-3)]">
+          <div className="pointer-events-none absolute bottom-2 left-0 right-0 text-center font-code text-[10.5px] text-md-outline">
             {DEVICES[p.device as "tablet"].label} · {dw} × {dh}
           </div>
         )}

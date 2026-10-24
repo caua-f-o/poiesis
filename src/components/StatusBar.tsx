@@ -18,7 +18,7 @@ interface Props {
 
 export function StatusBar({ file, cursor, settings, saving, errors, warns, missing, onConsole, onTab }: Props) {
   return (
-    <footer className="flex h-6 shrink-0 items-center gap-3 border-t border-[var(--line)] bg-[var(--ink-0)] px-3 text-[11px] text-[var(--paper-3)]">
+    <footer className="flex h-7 shrink-0 items-center gap-3 px-4 text-[11.5px] text-md-on-variant">
       <span className={cn("flex items-center gap-1", saving === "error" && "text-[var(--rose)]")}>
         <Icon
           name={saving === "saving" ? "sync" : saving === "error" ? "cloud_off" : "cloud_done"}
@@ -28,7 +28,7 @@ export function StatusBar({ file, cursor, settings, saving, errors, warns, missi
         {saving === "saving" ? "Salvando…" : saving === "error" ? "Falha ao salvar" : "Salvo localmente"}
       </span>
 
-      <button onClick={onConsole} className="flex items-center gap-2 rounded px-1 hover:bg-[var(--ink-3)] hover:text-[var(--paper-2)]">
+      <button onClick={onConsole} className="flex items-center gap-2 rounded px-1 md-state hover:text-md-on-surface">
         <span className={cn("flex items-center gap-0.5", errors && "text-[var(--rose)]")}>
           <Icon name="error" size={13} /> {errors}
         </span>
@@ -52,7 +52,7 @@ export function StatusBar({ file, cursor, settings, saving, errors, warns, missi
             Ln {cursor.line}, Col {cursor.col}
             {cursor.sel > 0 && <span className="text-[var(--paper-2)]"> ({cursor.sel} selecionados)</span>}
           </span>
-          <button className="rounded px-1 hover:bg-[var(--ink-3)] hover:text-[var(--paper-2)]" onClick={onTab} title="Alternar 2/4 espaços">
+          <button className="rounded px-1 md-state hover:text-md-on-surface" onClick={onTab} title="Alternar 2/4 espaços">
             Espaços: {settings.tabSize}
           </button>
           <span>UTF-8</span>

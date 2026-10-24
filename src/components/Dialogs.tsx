@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PFile, Settings } from "@/lib/types";
+import { THEMES } from "@/lib/themes";
 import { Icon } from "./Icon";
 import { fileIcon } from "./fileIcon";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -15,17 +16,18 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 /* ---------------- preferências ---------------- */
 
 function Row({ icon, title, hint, children }: { icon: string; title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 py-2.5">
-      <Icon name={icon} size={18} className="text-[var(--paper-3)]" />
+    <div className="flex items-center gap-4 py-3">
+      <Icon name={icon} size={21} className="text-md-on-variant" />
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] text-[var(--paper)]">{title}</div>
-        {hint && <div className="text-[11.5px] leading-snug text-[var(--paper-3)]">{hint}</div>}
+        <div className="text-[13.5px] text-md-on-surface">{title}</div>
+        {hint && <div className="text-[12px] leading-snug text-md-on-variant">{hint}</div>}
       </div>
       {children}
     </div>
@@ -47,24 +49,50 @@ export function SettingsDialog({
   onBackup(): void;
   onRestore(): void;
 }) {
+  const theme = THEMES.find((t) => t.id === settings.theme) ?? THEMES[0];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[460px] border-[var(--line-2)] bg-[var(--ink-2)] p-0">
-        <DialogHeader className="border-b border-[var(--line)] px-5 pb-3 pt-5">
-          <DialogTitle className="font-display text-[24px] font-normal italic">Preferências</DialogTitle>
-          <DialogDescription className="text-[12px]">Ajustes valem para todos os projetos.</DialogDescription>
+      <DialogContent className="max-w-[520px] gap-0 p-0">
+        <DialogHeader className="px-6 pb-2 pt-6">
+          <DialogTitle className="font-display text-[28px] italic">Preferências</DialogTitle>
+          <DialogDescription>Valem para todos os projetos.</DialogDescription>
         </DialogHeader>
-        <div className="max-h-[60vh] divide-y divide-[var(--line)] overflow-y-auto px-5">
+        <div className="max-h-[62vh] divide-y divide-md-outline-v overflow-y-auto px-6">
+          <Row icon="palette" title="Tema" hint={theme.note}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="md-btn md-btn-outlined h-9 gap-1 pr-3 text-md-on-surface">
+                  <span className="h-3 w-3 rounded-full" style={{ background: theme.ui.primary }} />
+                  {theme.name}
+                  <Icon name="arrow_drop_down" size={20} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                {THEMES.map((t) => (
+                  <DropdownMenuItem key={t.id} onSelect={() => onChange({ theme: t.id })}>
+                    <span className="flex h-4 w-7 overflow-hidden rounded-full">
+                      <span className="flex-1" style={{ background: t.syn.bg }} />
+                      <span className="flex-1" style={{ background: t.ui.primary }} />
+                      <span className="flex-1" style={{ background: t.syn.tag }} />
+                    </span>
+                    {t.name}
+                    {t.id === settings.theme && <Icon name="check" size={18} className="ml-auto !text-md-primary" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </Row>
           <Row icon="format_size" title="Tamanho da fonte" hint={`${settings.fontSize}px`}>
-            <Slider className="w-36" min={11} max={20} step={0.5} value={[settings.fontSize]} onValueChange={([v]) => onChange({ fontSize: v })} />
+            <Slider className="w-40" min={11} max={20} step={0.5} value={[settings.fontSize]} onValueChange={([v]) => onChange({ fontSize: v })} />
           </Row>
           <Row icon="wrap_text" title="Quebra de linha">
             <Switch checked={settings.wrap} onCheckedChange={(v) => onChange({ wrap: v })} />
           </Row>
           <Row icon="keyboard_tab" title="Indentação">
-            <div className="flex rounded-md bg-[var(--ink-0)] p-0.5">
+            <div className="md-seg">
               {[2, 4].map((n) => (
-                <button key={n} className="tool h-6 px-2.5" data-on={settings.tabSize === n} onClick={() => onChange({ tabSize: n })}>
+                <button key={n} data-on={settings.tabSize === n} onClick={() => onChange({ tabSize: n })} className="!px-3">
+                  {settings.tabSize === n && <Icon name="check" size={16} />}
                   {n} espaços
                 </button>
               ))}
@@ -73,8 +101,11 @@ export function SettingsDialog({
           <Row icon="bolt" title="Emmet" hint="ul>li*3 + Tab vira lista; ! + Tab vira esqueleto HTML">
             <Switch checked={settings.emmet} onCheckedChange={(v) => onChange({ emmet: v })} />
           </Row>
+          <Row icon="menu_book" title="Definições ao passar o mouse" hint="Mostra o que é cada tag, propriedade ou classe sob o cursor">
+            <Switch checked={settings.hoverDocs} onCheckedChange={(v) => onChange({ hoverDocs: v })} />
+          </Row>
           <Row icon="timer" title="Atraso do modo ao vivo" hint={`${settings.delay} ms depois da última tecla`}>
-            <Slider className="w-36" min={100} max={2000} step={50} value={[settings.delay]} onValueChange={([v]) => onChange({ delay: v })} />
+            <Slider className="w-40" min={100} max={2000} step={50} value={[settings.delay]} onValueChange={([v]) => onChange({ delay: v })} />
           </Row>
           <Row icon="merge" title="Injetar CSS/JS soltos" hint="Arquivos não referenciados no HTML entram no preview automaticamente">
             <Switch checked={settings.autoInject} onCheckedChange={(v) => onChange({ autoInject: v })} />
@@ -84,18 +115,18 @@ export function SettingsDialog({
           </Row>
           <Row icon="backup" title="Backup" hint="Todos os projetos num .json">
             <div className="flex gap-1">
-              <button className="tool border border-[var(--line-2)] px-2" onClick={onBackup}>
-                <Icon name="download" size={15} /> Salvar
+              <button className="md-btn md-btn-text" onClick={onBackup}>
+                Salvar
               </button>
-              <button className="tool border border-[var(--line-2)] px-2" onClick={onRestore}>
-                <Icon name="upload" size={15} /> Restaurar
+              <button className="md-btn md-btn-text" onClick={onRestore}>
+                Restaurar
               </button>
             </div>
           </Row>
         </div>
-        <div className="border-t border-[var(--line)] px-5 py-3 text-[11.5px] leading-relaxed text-[var(--paper-3)]">
-          <span className="font-display text-[14px] italic text-[var(--paper-2)]">ποίησις</span> — para os gregos, o ato de trazer à existência
-          o que antes não era. Código vira forma.
+        <div className="flex items-center gap-3 px-6 py-4 text-[12px] leading-relaxed text-md-on-variant">
+          <span className="font-display text-[17px] italic text-md-on-surface">ποίησις</span>
+          <span>— para os gregos, o ato de trazer à existência o que antes não era.</span>
         </div>
       </DialogContent>
     </Dialog>
@@ -104,25 +135,34 @@ export function SettingsDialog({
 
 /* ---------------- importação ---------------- */
 
+export type ImportMode = "new" | "add" | "merge";
+
 export function ImportDialog({
   files,
   suggested,
   currentName,
+  folders,
   onCancel,
   onConfirm,
 }: {
   files: PFile[] | null;
   suggested: string;
   currentName: string;
+  folders: string[];
   onCancel(): void;
-  onConfirm(mode: "new" | "merge", name: string): void;
+  onConfirm(mode: ImportMode, opts: { name: string; dir: string }): void;
 }) {
+  const [mode, setMode] = useState<ImportMode>("add");
   const [name, setName] = useState(suggested);
-  const [lastSuggested, setLastSuggested] = useState(suggested);
-  if (suggested !== lastSuggested) {
-    setLastSuggested(suggested);
-    setName(suggested);
-  }
+  const [dir, setDir] = useState("");
+  useEffect(() => {
+    if (files) {
+      setName(suggested);
+      setDir("");
+      setMode("add");
+    }
+  }, [files, suggested]);
+
   const count = (k: string) => files?.filter((f) => f.kind === k).length ?? 0;
   const groups = [
     ["html", "HTML"],
@@ -131,70 +171,209 @@ export function ImportDialog({
     ["asset", "Mídia"],
   ] as const;
 
+  const options: { id: ImportMode; icon: string; title: string; desc: string }[] = [
+    { id: "add", icon: "add_circle", title: `Adicionar a “${currentName}”`, desc: "Mantém tudo que já existe. Nomes repetidos ganham sufixo (-2, -3…)." },
+    { id: "new", icon: "create_new_folder", title: "Criar um projeto novo", desc: "Os arquivos viram um projeto separado." },
+    { id: "merge", icon: "merge", title: `Mesclar em “${currentName}”`, desc: "Arquivos com o mesmo caminho são substituídos." },
+  ];
+
   return (
     <Dialog open={!!files} onOpenChange={(o) => !o && onCancel()}>
-      <DialogContent className="max-w-[480px] border-[var(--line-2)] bg-[var(--ink-2)]">
+      <DialogContent className="max-w-[540px]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[24px] font-normal italic">Trazer para dentro</DialogTitle>
-          <DialogDescription className="text-[12px]">
-            {files?.length} {files?.length === 1 ? "arquivo" : "arquivos"} prontos. Links entre HTML, CSS e JS são resolvidos automaticamente.
+          <Icon name="move_to_inbox" size={26} className="mb-1 text-md-primary" />
+          <DialogTitle className="font-display text-[28px] italic">Trazer para dentro</DialogTitle>
+          <DialogDescription>
+            {files?.length} {files?.length === 1 ? "arquivo pronto" : "arquivos prontos"}. As ligações entre HTML, CSS e JS são resolvidas automaticamente.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-wrap gap-1.5">
           {groups.map(([k, label]) =>
             count(k) ? (
-              <span key={k} className="rounded-full border border-[var(--line-2)] px-2 py-0.5 text-[11px] text-[var(--paper-2)]">
+              <span key={k} className="md-chip pointer-events-none h-6 px-2.5">
                 {count(k)} {label}
               </span>
             ) : null
           )}
         </div>
-        <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--line)] bg-[var(--ink-0)] py-1">
+        <div className="max-h-32 overflow-y-auto rounded-xl bg-md-container py-1.5">
           {files?.map((f) => {
             const { icon, color } = fileIcon(f);
             return (
               <div key={f.id} className="flex items-center gap-2 px-3 py-0.5">
-                <span className="msr" style={{ fontSize: 15, color }}>
+                <span className="msr" style={{ fontSize: 16, color }}>
                   {icon}
                 </span>
-                <span className="truncate font-code text-[11.5px] text-[var(--paper-2)]">{f.name}</span>
+                <span className="truncate font-code text-[11.5px] text-md-on-variant">{f.name}</span>
               </div>
             );
           })}
         </div>
 
-        <div className="grid gap-2">
-          <div className="rounded-xl border border-[var(--gold-lo)] bg-[var(--gold)]/[.05] p-3">
-            <div className="flex items-center gap-2 text-[13px] text-[var(--paper)]">
-              <Icon name="create_new_folder" size={18} className="text-[var(--gold)]" /> Novo projeto
-            </div>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onConfirm("new", name.trim() || suggested)}
-                className="h-8 flex-1 rounded-md border border-[var(--line-2)] bg-[var(--ink-0)] px-2 text-[13px] outline-none focus:border-[var(--gold-lo)]"
-              />
-              <button
-                autoFocus
-                onClick={() => onConfirm("new", name.trim() || suggested)}
-                className="h-8 rounded-md bg-[var(--gold)] px-3 text-[12.5px] font-semibold text-[#17130c] hover:bg-[var(--gold-hi)]"
-              >
-                Criar
-              </button>
-            </div>
-          </div>
-          <button
-            onClick={() => onConfirm("merge", "")}
-            className="flex items-center gap-2 rounded-xl border border-[var(--line-2)] p-3 text-left text-[13px] text-[var(--paper-2)] transition-colors hover:border-[var(--paper-3)] hover:text-[var(--paper)]"
-          >
-            <Icon name="merge" size={18} />
-            <span className="flex-1">
-              Mesclar em <b className="font-medium text-[var(--paper)]">{currentName}</b>
-              <span className="block text-[11.5px] text-[var(--paper-3)]">Arquivos com o mesmo nome serão substituídos</span>
-            </span>
+        <div role="radiogroup" className="grid gap-1">
+          {options.map((o) => (
+            <button
+              key={o.id}
+              role="radio"
+              aria-checked={mode === o.id}
+              onClick={() => setMode(o.id)}
+              className={cn("md-item h-auto items-start rounded-2xl px-3 py-2.5", mode === o.id && "bg-md-secondary-c")}
+            >
+              <Icon name={mode === o.id ? "radio_button_checked" : "radio_button_unchecked"} size={21} className={mode === o.id ? "text-md-primary" : ""} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-medium text-md-on-surface">{o.title}</span>
+                <span className="block text-[12px] leading-snug text-md-on-variant">{o.desc}</span>
+              </span>
+              <Icon name={o.icon} size={20} className="mt-0.5" />
+            </button>
+          ))}
+        </div>
+
+        {mode === "new" && (
+          <label className="grid gap-1.5">
+            <span className="text-[12px] font-medium text-md-on-variant">Nome do projeto</span>
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className="md-field" />
+          </label>
+        )}
+        {mode !== "new" && (
+          <label className="grid gap-1.5">
+            <span className="text-[12px] font-medium text-md-on-variant">Colocar em</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="md-field flex items-center gap-2 text-left">
+                  <Icon name={dir ? "folder" : "home_storage"} size={18} className="text-md-primary" />
+                  <span className="flex-1 font-code text-[12.5px]">{dir || "raiz do projeto"}</span>
+                  <Icon name="arrow_drop_down" size={20} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-64 w-[var(--radix-dropdown-menu-trigger-width)]">
+                {["", ...folders].map((d) => (
+                  <DropdownMenuItem key={d || "/"} onSelect={() => setDir(d)} className="font-code text-[12px]">
+                    <Icon name={d ? "folder" : "home_storage"} size={18} /> {d || "raiz do projeto"}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </label>
+        )}
+
+        <DialogFooter>
+          <button className="md-btn md-btn-text" onClick={onCancel}>
+            Cancelar
           </button>
+          <button className="md-btn md-btn-filled" onClick={() => onConfirm(mode, { name: name.trim() || suggested, dir })}>
+            {mode === "new" ? "Criar projeto" : mode === "add" ? "Adicionar" : "Mesclar"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------------- renomear símbolo ---------------- */
+
+export function RenameDialog({
+  target,
+  onCancel,
+  onConfirm,
+}: {
+  target: { label: string; name: string; count: number } | null;
+  onCancel(): void;
+  onConfirm(newName: string): void;
+}) {
+  const [v, setV] = useState("");
+  useEffect(() => {
+    if (target) setV(target.name);
+  }, [target]);
+  const valid = /^-?[_a-zA-Z -￿][\w -￿-]*$/.test(v.replace(/^--/, "a"));
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="max-w-[440px]">
+        <DialogHeader>
+          <Icon name="edit_note" size={26} className="mb-1 text-md-primary" />
+          <DialogTitle>
+            Renomear <span className="font-code text-[20px] text-md-primary">{target?.label}</span>
+          </DialogTitle>
+          <DialogDescription>
+            Atualiza {target?.count ?? 0} ocorrência{target?.count === 1 ? "" : "s"} em HTML, CSS e JavaScript de todo o projeto.
+          </DialogDescription>
+        </DialogHeader>
+        <input
+          autoFocus
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && valid && v !== target?.name && onConfirm(v)}
+          onFocus={(e) => e.currentTarget.select()}
+          className="md-field font-code"
+        />
+        <DialogFooter>
+          <button className="md-btn md-btn-text" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button className="md-btn md-btn-filled" disabled={!valid || v === target?.name} onClick={() => onConfirm(v)}>
+            Renomear
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------------- atalhos ---------------- */
+
+const SHORTCUTS: [string, [string, string][]][] = [
+  [
+    "Geral",
+    [
+      ["Executar", "Ctrl+Enter / Ctrl+S"],
+      ["Paleta de comandos", "Ctrl+K"],
+      ["Abrir arquivo", "Ctrl+P"],
+      ["Importar arquivos", "Ctrl+O"],
+      ["Buscar no projeto", "Ctrl+Shift+F"],
+      ["Barra lateral / console", "Ctrl+B / Ctrl+J"],
+      ["Alternar layout", "Ctrl+\\"],
+      ["Recarregar preview", "Ctrl+R"],
+    ],
+  ],
+  [
+    "Editor",
+    [
+      ["Sugestões", "Ctrl+Espaço"],
+      ["Definição do símbolo", "Alt+F1"],
+      ["Ir para definição", "F12 / Ctrl+clique"],
+      ["Renomear no projeto", "F2"],
+      ["Formatar", "Shift+Alt+F"],
+      ["Buscar / substituir", "Ctrl+F / Ctrl+H"],
+      ["Comentar", "Ctrl+/"],
+      ["Selecionar próxima ocorrência", "Ctrl+D"],
+      ["Duplicar / mover linha", "Shift+Alt+↓ / Alt+↑↓"],
+      ["Quebra de linha", "Alt+Z"],
+      ["Expandir Emmet", "Tab"],
+      ["Envolver com Emmet", "Ctrl+Shift+A"],
+    ],
+  ],
+];
+
+export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange(o: boolean): void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[620px]">
+        <DialogHeader>
+          <DialogTitle className="font-display text-[28px] italic">Atalhos</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-6 sm:grid-cols-2">
+          {SHORTCUTS.map(([group, list]) => (
+            <div key={group}>
+              <div className="eyebrow mb-2">{group}</div>
+              {list.map(([a, k]) => (
+                <div key={a} className="flex items-center justify-between gap-3 border-b border-md-outline-v py-1.5 text-[12.5px]">
+                  <span>{a}</span>
+                  <span className="shrink-0 font-code text-[11px] text-md-on-variant">{k}</span>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </DialogContent>
     </Dialog>
@@ -235,14 +414,14 @@ export function CommandPalette({
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput placeholder={mode === "files" ? "Ir para arquivo…" : "Digite um comando ou nome de arquivo…"} />
-      <CommandList className="max-h-[420px]">
+      <CommandList>
         <CommandEmpty>Nada encontrado.</CommandEmpty>
         <CommandGroup heading="Arquivos">
           {files.map((f) => {
             const { icon, color } = fileIcon(f);
             return (
-              <CommandItem key={f.id} value={"arquivo " + f.name} onSelect={() => close(() => onOpenFile(f.id))} className="gap-2">
-                <span className="msr" style={{ fontSize: 16, color }}>
+              <CommandItem key={f.id} value={"arquivo " + f.name} onSelect={() => close(() => onOpenFile(f.id))}>
+                <span className="msr" style={{ fontSize: 18, color }}>
                   {icon}
                 </span>
                 <span className="font-code text-[12.5px]">{f.name}</span>
@@ -258,10 +437,10 @@ export function CommandPalette({
                 {commands
                   .filter((c) => c.group === g)
                   .map((c) => (
-                    <CommandItem key={c.id} value={c.group + " " + c.label} onSelect={() => close(c.run)} className="gap-2">
-                      <Icon name={c.icon} size={17} className="text-[var(--paper-3)]" />
+                    <CommandItem key={c.id} value={c.group + " " + c.label} onSelect={() => close(c.run)}>
+                      <Icon name={c.icon} size={19} className="text-md-on-variant" />
                       {c.label}
-                      {c.shortcut && <CommandShortcut className={cn("font-code tracking-normal")}>{c.shortcut}</CommandShortcut>}
+                      {c.shortcut && <CommandShortcut>{c.shortcut}</CommandShortcut>}
                     </CommandItem>
                   ))}
               </CommandGroup>

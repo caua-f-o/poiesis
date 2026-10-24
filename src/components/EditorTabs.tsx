@@ -1,24 +1,24 @@
 import { useEffect, useRef } from "react";
 import type { PFile } from "@/lib/types";
 import { Icon } from "./Icon";
+import { IconButton } from "./md";
 import { fileIcon } from "./fileIcon";
 import { cn } from "@/lib/utils";
 
 interface Props {
   tabs: PFile[];
   activeId: string | null;
-  sidebar: boolean;
   wrap: boolean;
   canFormat: boolean;
   formatting: boolean;
   onOpen(id: string): void;
   onClose(id: string): void;
-  onShowSidebar(): void;
   onFormat(): void;
   onSearch(): void;
   onWrap(): void;
 }
 
+/** Abas no estilo "primary tabs" do Material 3: indicador arredondado sob o rótulo ativo. */
 export function EditorTabs(p: Props) {
   const strip = useRef<HTMLDivElement>(null);
 
@@ -28,15 +28,11 @@ export function EditorTabs(p: Props) {
   }, [p.activeId]);
 
   return (
-    <div className="flex h-10 shrink-0 items-stretch border-b border-[var(--line)] bg-[var(--ink-1)]">
-      {!p.sidebar && (
-        <button className="tool my-auto ml-1.5" title="Mostrar arquivos (Ctrl+B)" onClick={p.onShowSidebar}>
-          <Icon name="left_panel_open" size={17} />
-        </button>
-      )}
+    <div className="flex h-11 shrink-0 items-stretch border-b border-md-outline-v">
       <div
         ref={strip}
-        className="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+        className="flex min-w-0 flex-1 items-stretch overflow-x-auto pl-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onWheel={(e) => {
           if (strip.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) strip.current.scrollLeft += e.deltaY;
         }}
@@ -49,6 +45,8 @@ export function EditorTabs(p: Props) {
           return (
             <div
               key={f.id}
+              role="tab"
+              aria-selected={active}
               data-active={active}
               onMouseDown={(e) => {
                 if (e.button === 1) {
@@ -56,46 +54,45 @@ export function EditorTabs(p: Props) {
                   p.onClose(f.id);
                 }
               }}
-              className={cn(
-                "group relative flex shrink-0 cursor-pointer items-center gap-2 border-r border-[var(--line)] pl-3 pr-1.5 transition-colors",
-                active ? "bg-[var(--ink-2)] text-[var(--paper)]" : "text-[var(--paper-3)] hover:bg-[var(--ink-3)] hover:text-[var(--paper-2)]"
-              )}
               onClick={() => p.onOpen(f.id)}
               title={f.name}
+              className={cn(
+                "md-item group relative !w-auto shrink-0 cursor-pointer !rounded-none !rounded-t-xl pl-3.5 pr-1.5",
+                active ? "text-md-on-surface" : "text-md-on-variant"
+              )}
             >
-              {active && <span className="absolute inset-x-0 top-0 h-[2px] bg-[var(--gold)]" />}
-              <span className="msr" style={{ fontSize: 16, color, opacity: active ? 1 : 0.7 }}>
+              <span className="msr" style={{ fontSize: 17, color, opacity: active ? 1 : 0.75 }}>
                 {icon}
               </span>
-              <span className="font-code text-[12px]">{short}</span>
-              {dir && <span className="max-w-[90px] truncate text-[11px] text-[var(--paper-3)]">{dir}</span>}
+              <span className={cn("font-code text-[12.5px]", active && "font-semibold")}>{short}</span>
+              {dir && <span className="max-w-[90px] truncate text-[11px] text-md-outline">{dir}</span>}
               <button
-                className={cn(
-                  "ml-0.5 flex h-5 w-5 items-center justify-center rounded transition-opacity hover:bg-[var(--ink-5)]",
-                  active ? "opacity-70 hover:opacity-100" : "opacity-0 group-hover:opacity-70"
-                )}
+                className={cn("md-icon-btn xs !h-6 !w-6 transition-opacity", active ? "opacity-80" : "opacity-0 group-hover:opacity-70")}
                 onClick={(e) => {
                   e.stopPropagation();
                   p.onClose(f.id);
                 }}
-                title="Fechar"
+                aria-label="Fechar aba"
               >
-                <Icon name="close" size={14} />
+                <Icon name="close" size={15} />
               </button>
+              {active && <span className="absolute inset-x-3 bottom-0 h-[3px] rounded-t-full bg-md-primary" />}
             </div>
           );
         })}
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 border-l border-[var(--line)] px-1.5">
-        <button className="tool" title="Buscar e substituir (Ctrl+F)" onClick={p.onSearch}>
-          <Icon name="search" size={17} />
-        </button>
-        <button className="tool" title="Quebra de linha (Alt+Z)" data-on={p.wrap} onClick={p.onWrap}>
-          <Icon name="wrap_text" size={17} />
-        </button>
-        <button className="tool" title="Formatar documento (Shift+Alt+F)" disabled={!p.canFormat || p.formatting} onClick={p.onFormat}>
-          <Icon name={p.formatting ? "hourglass_top" : "format_align_left"} size={17} />
-        </button>
+      <div className="flex shrink-0 items-center gap-0.5 px-1.5">
+        <IconButton icon="search" label="Buscar e substituir" shortcut="Ctrl+F" size="sm" onClick={p.onSearch} />
+        <IconButton icon="wrap_text" label="Quebra de linha" shortcut="Alt+Z" size="sm" on={p.wrap} onClick={p.onWrap} />
+        <IconButton
+          icon={p.formatting ? "progress_activity" : "format_align_left"}
+          label="Formatar documento"
+          shortcut="Shift+Alt+F"
+          size="sm"
+          disabled={!p.canFormat || p.formatting}
+          onClick={p.onFormat}
+          className={p.formatting ? "[&_.msr]:animate-spin" : ""}
+        />
       </div>
     </div>
   );

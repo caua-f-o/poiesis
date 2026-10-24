@@ -231,9 +231,38 @@
     post("error", [ser("Promise rejeitada sem tratamento:"), ser(r)], r && r.stack ? srcFromStack(r.stack) : null);
   });
 
+  /* ---------------- realce de elementos ("Ver no preview") ---------------- */
+  function highlight(selector) {
+    var els;
+    try { els = document.querySelectorAll(selector); } catch (err) { return 0; }
+    var boxes = [];
+    for (var i = 0; i < els.length && i < 200; i++) {
+      var r = els[i].getBoundingClientRect();
+      var b = document.createElement("div");
+      b.setAttribute("data-poiesis-hl", "");
+      b.style.cssText = "position:fixed;z-index:2147483647;pointer-events:none;border-radius:4px;" +
+        "outline:2px solid #d9b26f;background:rgba(217,178,111,.18);transition:opacity .5s;" +
+        "left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;height:" + r.height + "px";
+      document.documentElement.appendChild(b);
+      boxes.push(b);
+    }
+    if (els[0] && els[0].scrollIntoView) {
+      var rr = els[0].getBoundingClientRect();
+      if (rr.top < 0 || rr.bottom > innerHeight) els[0].scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+    setTimeout(function () { boxes.forEach(function (b) { b.style.opacity = "0"; }); }, 1400);
+    setTimeout(function () { boxes.forEach(function (b) { b.remove(); }); }, 2000);
+    return els.length;
+  }
+
   /* ---------------- REPL ---------------- */
   W.addEventListener("message", function (e) {
     var d = e.data;
+    if (d && d.__poiesisHighlight != null) {
+      var n = highlight(String(d.__poiesisHighlight));
+      post("system", [ser(n ? n + " elemento(s) com " + d.__poiesisHighlight : "Nenhum elemento com " + d.__poiesisHighlight + " nesta página")]);
+      return;
+    }
     if (!d || d.__poiesisEval == null) return;
     try {
       var res = (0, eval)(String(d.__poiesisEval));

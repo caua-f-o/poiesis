@@ -16,6 +16,8 @@ export interface Project {
   files: PFile[];
   /** id do HTML principal */
   entry: string;
+  /** pastas explícitas (inclusive vazias); as demais vêm dos caminhos dos arquivos */
+  folders?: string[];
   openTabs: string[];
   activeFile: string | null;
   createdAt: number;
@@ -24,6 +26,7 @@ export interface Project {
 
 export type Layout = "split" | "stack" | "editor" | "preview";
 export type Device = "full" | "tablet" | "mobile";
+export type Panel = "files" | "search" | "projects" | "themes";
 
 export interface Settings {
   autoRun: boolean;
@@ -36,6 +39,9 @@ export interface Settings {
   autoInject: boolean;
   clearOnRun: boolean;
   sidebar: boolean;
+  panel: Panel;
+  theme: string;
+  hoverDocs: boolean;
   console: boolean;
   device: Device;
   landscape: boolean;
