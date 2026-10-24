@@ -55,6 +55,60 @@
     };
   }
 
+  /* ---------------- localStorage/sessionStorage/cookie na sandbox ----------------
+   * O preview roda numa origem isolada, onde o navegador bloqueia o armazenamento.
+   * Este substituto se comporta como o Storage real e o editor guarda os dados por projeto. */
+  function makeStorage(initial, persist) {
+    var data = {};
+    for (var k0 in initial || {}) data[k0] = String(initial[k0]);
+    function sync() {
+      if (!persist) return;
+      try { parentWin.postMessage({ __poiesis: 1, type: "storage", data: data }, origin); } catch (e) {}
+    }
+    var api = {
+      getItem: function (k) { k = String(k); return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
+      setItem: function (k, v) { data[String(k)] = String(v); sync(); },
+      removeItem: function (k) { delete data[String(k)]; sync(); },
+      clear: function () { data = {}; sync(); },
+      key: function (i) { var ks = Object.keys(data); return i < ks.length ? ks[i] : null; },
+    };
+    return new Proxy(api, {
+      get: function (t, p) {
+        if (p === "length") return Object.keys(data).length;
+        if (p in t) return t[p];
+        if (typeof p === "string" && Object.prototype.hasOwnProperty.call(data, p)) return data[p];
+        return undefined;
+      },
+      set: function (t, p, v) { if (p in t) return false; data[String(p)] = String(v); sync(); return true; },
+      deleteProperty: function (t, p) { delete data[String(p)]; sync(); return true; },
+      has: function (t, p) { return p in t || Object.prototype.hasOwnProperty.call(data, p); },
+      ownKeys: function () { return Object.keys(data); },
+      getOwnPropertyDescriptor: function (t, p) {
+        if (Object.prototype.hasOwnProperty.call(data, p)) return { value: data[p], writable: true, enumerable: true, configurable: true };
+        return undefined;
+      },
+    });
+  }
+  function blocked(name) {
+    try { void W[name]; return false; } catch (e) { return true; }
+  }
+  if (blocked("localStorage")) {
+    try { Object.defineProperty(W, "localStorage", { value: makeStorage(CFG.storage, true), configurable: true }); } catch (e) {}
+  }
+  if (blocked("sessionStorage")) {
+    try { Object.defineProperty(W, "sessionStorage", { value: makeStorage({}, false), configurable: true }); } catch (e) {}
+  }
+  try { void document.cookie; } catch (e) {
+    var jar = {};
+    try {
+      Object.defineProperty(document, "cookie", {
+        configurable: true,
+        get: function () { return Object.keys(jar).map(function (k) { return k + "=" + jar[k]; }).join("; "); },
+        set: function (v) { var kv = String(v).split(";")[0]; var i = kv.indexOf("="); if (i > 0) jar[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); },
+      });
+    } catch (e2) {}
+  }
+
   if (!CFG.console) return;
 
   /* ---------------- serialização para o console ---------------- */

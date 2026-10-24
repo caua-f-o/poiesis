@@ -36,6 +36,8 @@ import { Preview, type PreviewHandle } from "@/components/Preview";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { StatusBar } from "@/components/StatusBar";
 import { AssetView } from "@/components/AssetView";
+import { SymbolPicker, type SymbolPick } from "@/components/SymbolPicker";
+import { hasSymbolsLink, linkTag, withSymbolsLink } from "@/lib/symbols";
 import { CommandPalette, ImportDialog, RenameDialog, SettingsDialog, ShortcutsDialog, type Cmd, type ImportMode } from "@/components/Dialogs";
 import { Icon, Logo } from "@/components/Icon";
 import { installRipple } from "@/components/md";
@@ -105,6 +107,7 @@ export default function App() {
   const [palette, setPalette] = useState<"files" | "all" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [symbolPicker, setSymbolPicker] = useState<{ lang: "html" | "css" | "js" | "other"; current: { from: number; to: number; name: string; style: string } | null } | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ sym: Sym; label: string; name: string; count: number } | null>(null);
   const [searchSeed, setSearchSeed] = useState<{ q: string; n: number } | null>(null);
   const [formatting, setFormatting] = useState(false);
@@ -121,6 +124,17 @@ export default function App() {
   const importDir = useRef<string | null>(null);
   const wsRef = useRef(ws);
   wsRef.current = ws;
+  /** localStorage do preview, por projeto (a sandbox não tem armazenamento próprio) */
+  const previewStorage = useRef<Record<string, Record<string, string>>>(
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem("poiesis:preview-storage") || "{}");
+      } catch {
+        return {};
+      }
+    })()
+  );
+  const saveStorageSoon = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => installRipple(), []);
 
@@ -184,7 +198,7 @@ export default function App() {
     const w = wsRef.current;
     if (!w) return;
     const p = w.projects[w.currentId];
-    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject });
+    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject, storage: previewStorage.current[p.id] });
     if (w.settings.clearOnRun) setLogs([]);
     setErrorLine(null);
     setBusy(true);
@@ -235,6 +249,19 @@ export default function App() {
         case "clear":
           setLogs([]);
           break;
+        case "storage": {
+          if (!p || typeof d.data !== "object") break;
+          previewStorage.current[p.id] = d.data;
+          if (saveStorageSoon.current) clearTimeout(saveStorageSoon.current);
+          saveStorageSoon.current = setTimeout(() => {
+            try {
+              localStorage.setItem("poiesis:preview-storage", JSON.stringify(previewStorage.current));
+            } catch {
+              /* cheio: ignora */
+            }
+          }, 400);
+          break;
+        }
         case "ready":
           setBusy(false);
           setLoadMs(d.ms ?? null);
@@ -689,6 +716,52 @@ export default function App() {
     toast.success(`${count} substituições`, { action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) } });
   };
 
+  /* ---------------- ícones Material Symbols ---------------- */
+  const openSymbols = () => {
+    const editable = activeFile && activeFile.kind !== "asset";
+    setSymbolPicker({
+      lang: editable ? (editor.current?.langAtCursor() ?? "html") : "html",
+      current: editable ? (editor.current?.iconAtCursor() ?? null) : null,
+    });
+  };
+
+  const insertSymbol = (p: SymbolPick) => {
+    const ctx = symbolPicker;
+    const file = activeFile && activeFile.kind !== "asset" ? activeFile : null;
+    if (!file || !editor.current) {
+      navigator.clipboard.writeText(p.code);
+      toast.success("Abra um arquivo para inserir — o código foi copiado", { description: p.code });
+      return;
+    }
+    if (ctx?.current) {
+      editor.current.insert(p.name, { replace: { from: ctx.current.from, to: ctx.current.to } });
+      toast(`Ícone trocado: ${ctx.current.name} → ${p.name}`);
+      return;
+    }
+    let headLink: string | undefined;
+    let linkedIn: string | null = null;
+    if (p.addLink) {
+      if (file.kind === "html") {
+        if (!hasSymbolsLink(file.content, p.options.style)) {
+          headLink = linkTag(p.options.style);
+          linkedIn = file.name;
+        }
+      } else if (project) {
+        // CSS/JS: o <link> vai para a página principal (ou a que está no preview)
+        const page = project.files.find((f) => f.id === (previewPage ?? project.entry) && f.kind === "html") ?? project.files.find((f) => f.kind === "html");
+        if (page) {
+          const next = withSymbolsLink(page.content, p.options.style);
+          if (next) {
+            updateProject((pr) => ({ ...pr, files: pr.files.map((f) => (f.id === page.id ? { ...f, content: next } : f)) }));
+            linkedIn = page.name;
+          }
+        }
+      }
+    }
+    editor.current.insert(p.code, { headLink });
+    toast.success(`Ícone “${p.name}” inserido`, { description: linkedIn ? `Fonte Material Symbols adicionada ao <head> de ${linkedIn}` : undefined });
+  };
+
   /* ---------------- console ---------------- */
   const evalCode = (code: string) => {
     setLogs((ls) => [...ls, { id: ++logSeq, level: "input", args: [{ t: "str", v: code }], count: 1, time: Date.now() }]);
@@ -753,6 +826,9 @@ export default function App() {
     } else if (e.altKey && e.shiftKey && k === "f") {
       e.preventDefault();
       format();
+    } else if (e.altKey && !mod && !e.shiftKey && k === "i") {
+      e.preventDefault();
+      openSymbols();
     } else if (e.key === "F2" && activeFile) {
       e.preventDefault();
       const sym = inEditor ? editor.current?.symbolAtCursor() : null;
@@ -843,7 +919,20 @@ export default function App() {
         { id: "exp-z", group: "Projeto", label: "Exportar projeto (.zip)", icon: "folder_zip", run: exportZip },
         { id: "exp-h", group: "Projeto", label: "Exportar HTML único", icon: "html", run: exportHtml },
         { id: "new", group: "Projeto", label: "Novo projeto em branco", icon: "add", run: () => createProject("vazio") },
+        {
+          id: "clear-storage",
+          group: "Console",
+          label: "Limpar localStorage do preview",
+          icon: "delete_sweep",
+          run: () => {
+            delete previewStorage.current[project!.id];
+            localStorage.setItem("poiesis:preview-storage", JSON.stringify(previewStorage.current));
+            runNow(true);
+            toast("localStorage do preview limpo");
+          },
+        },
         { id: "clear", group: "Console", label: "Limpar console", icon: "block", run: () => setLogs([]) },
+        { id: "icon", group: "Editor", label: "Inserir ícone Material Symbols…", icon: "interests", shortcut: "Alt I", run: () => openSymbols() },
         { id: "keys", group: "Geral", label: "Atalhos de teclado", icon: "keyboard", run: () => setShortcutsOpen(true) },
         { id: "prefs", group: "Geral", label: "Preferências", icon: "settings", run: () => setSettingsOpen(true) },
       ]
@@ -875,6 +964,7 @@ export default function App() {
         onFormat={format}
         onSearch={() => editor.current?.search()}
         onWrap={() => updateSettings({ wrap: !settings.wrap })}
+        onIcon={() => openSymbols()}
       />
       <div className="relative min-h-0 flex-1">
         <div className={activeFile && activeFile.kind !== "asset" ? "h-full" : "hidden"}>
@@ -889,6 +979,7 @@ export default function App() {
             }}
             onSearch={(q) => openSearch(q)}
             onPalette={() => setPalette("all")}
+            onIcon={() => openSymbols()}
           >
             <CodeEditor
               ref={editor}
@@ -1154,6 +1245,18 @@ export default function App() {
           onRestore={() => backupInput.current?.click()}
         />
         <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <SymbolPicker
+          open={!!symbolPicker}
+          onOpenChange={(o) => !o && setSymbolPicker(null)}
+          lang={symbolPicker?.lang ?? "html"}
+          current={symbolPicker?.current ?? null}
+          onPick={insertSymbol}
+          onClosed={() => editor.current?.focus()}
+          onCopy={(t) => {
+            navigator.clipboard.writeText(t);
+            toast.success("Código copiado");
+          }}
+        />
         <CommandPalette open={!!palette} mode={palette ?? "all"} onOpenChange={(o) => !o && setPalette(null)} files={project.files} commands={commands} onOpenFile={openFile} />
         <Toaster
           theme={theme.dark ? "dark" : "light"}

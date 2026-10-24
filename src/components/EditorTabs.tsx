@@ -16,6 +16,7 @@ interface Props {
   onFormat(): void;
   onSearch(): void;
   onWrap(): void;
+  onIcon(): void;
 }
 
 /** Abas no estilo "primary tabs" do Material 3: indicador arredondado sob o rótulo ativo. */
@@ -82,6 +83,7 @@ export function EditorTabs(p: Props) {
         })}
       </div>
       <div className="flex shrink-0 items-center gap-0.5 px-1.5">
+        <IconButton icon="interests" label="Inserir ícone Material Symbols" shortcut="Alt+I" size="sm" onClick={p.onIcon} />
         <IconButton icon="search" label="Buscar e substituir" shortcut="Ctrl+F" size="sm" onClick={p.onSearch} />
         <IconButton icon="wrap_text" label="Quebra de linha" shortcut="Alt+Z" size="sm" on={p.wrap} onClick={p.onWrap} />
         <IconButton

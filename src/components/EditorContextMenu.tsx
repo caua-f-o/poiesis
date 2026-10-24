@@ -35,9 +35,10 @@ interface Props {
   onHighlight(selector: string): void;
   onSearch(text: string): void;
   onPalette(): void;
+  onIcon(): void;
 }
 
-export function EditorContextMenu({ editor, canFormat, children, onFormat, onRename, onHighlight, onSearch, onPalette }: Props) {
+export function EditorContextMenu({ editor, canFormat, children, onFormat, onRename, onHighlight, onSearch, onPalette, onIcon }: Props) {
   const [ctx, setCtx] = useState<MenuContext | null>(null);
   const run = (a: EditorAction) => () => {
     setTimeout(() => editor.current?.run(a), 0);
@@ -81,6 +82,11 @@ export function EditorContextMenu({ editor, canFormat, children, onFormat, onRen
             <ContextMenuSeparator />
           </>
         )}
+        <ContextMenuItem onSelect={() => setTimeout(onIcon, 0)}>
+          <Icon name="interests" size={19} /> {ctx?.icon ? `Trocar ícone “${ctx.icon}”…` : "Inserir ícone Material Symbols…"}
+          <ContextMenuShortcut>Alt+I</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem onSelect={run("cut")}>
           <Icon name="content_cut" size={19} /> Recortar
           <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>

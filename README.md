@@ -26,6 +26,8 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - **Autocompletar ampliado**: descrição em português de tags, atributos, propriedades CSS e APIs JS; classes e ids do CSS dentro de `class=""`/`id=""` e vice-versa nos seletores; caminhos do projeto em `href`, `src`, `url()`, `fetch()` e `import`; `var(--…)`, nomes de `@keyframes`, eventos de `addEventListener`, seletores em `querySelector` e `classList`, funções de outros arquivos JS e snippets (`log`, `qs`, `ael`, `fetchjson`, `forof`…).
 - **Definições**: cartão "o que é e para que serve" para tags, atributos, propriedades, pseudo-seletores e APIs — e, para classes, ids, variáveis e animações do projeto, onde são definidas e onde são usadas (clicáveis). Aparece ao passar o mouse, com `Alt+F1` ou pelo menu de contexto.
 - **Ir para definição** (`F12` / `Ctrl+clique`) e **renomear em todo o projeto** (`F2`) classes, ids, variáveis CSS e keyframes.
+- **Seletor de ícones Material Symbols** (`Alt+I`, menu de contexto ou botão na barra de abas): 3.932 ícones com prévia offline, busca em português ou inglês ("casa", "lixeira", "seta"…), estilos Outlined/Rounded/Sharp, preenchimento, peso e tamanho. Insere o `<span>` (ou só o nome, ou o CSS) e adiciona o `<link>` da fonte no `<head>` se faltar. Com o cursor num ícone existente, troca o ícone.
+- **Autocompletar ainda mais amplo**: ao digitar `<img`, `<link`, `<script`, `<a`, `<video`, `<audio`, `<iframe` ele já oferece a tag pronta com cada arquivo do projeto (com miniatura das imagens); a lista abre sozinha ao cair em `src=""`/`href=""`/`url()`; propriedades e valores dentro de `style=""`; nomes de ícones dentro de `<span class="material-symbols-…">`; atributos `data-*` do projeto (HTML, `[data-…]` no CSS e `dataset.` no JS); chaves do `localStorage`; fontes do projeto em `font-family`; tags em `createElement`; propriedades em camelCase em `.style.`; arquivos em `.src =`, `new Image/Audio/Worker()` e `@import`; valores sugeridos para `rel`, `target`, `loading`, `meta name/content`, `role`, `autocomplete`…
 - **Menu de contexto** com definição, ir para definição, renomear, mostrar o elemento no preview, recortar/copiar/colar, comentar, formatar, operações de linha, maiúsculas/minúsculas, dobrar/desdobrar, ações do Emmet e busca no projeto.
 
 **Projeto**
@@ -34,7 +36,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - Busca e substituição em todos os arquivos.
 - Exportar em `.zip` (com pastas) ou HTML único; vários projetos, modelos, backup.
 
-**Preview e console**: preview ao vivo sem piscar, modos tablet/celular, janela destacada sincronizada, módulos ES e `fetch` de arquivos do projeto, console com objetos expansíveis, REPL e link `arquivo:linha`.
+**Preview e console**: `localStorage`, `sessionStorage` e `document.cookie` funcionam no preview (a sandbox bloqueia os nativos; o Poiesis fornece substitutos e guarda o localStorage por projeto), preview ao vivo sem piscar, modos tablet/celular, janela destacada sincronizada, módulos ES e `fetch` de arquivos do projeto, console com objetos expansíveis, REPL e link `arquivo:linha`.
 
 ## Atalhos
 
@@ -46,6 +48,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 | Buscar no projeto | `Ctrl+Shift+F` |
 | Definição / ir para definição | `Alt+F1` / `F12` |
 | Renomear no projeto | `F2` |
+| Inserir / trocar ícone | `Alt+I` |
 | Importar arquivos | `Ctrl+O` |
 | Formatar | `Shift+Alt+F` |
 | Buscar / substituir | `Ctrl+F` / `Ctrl+H` |

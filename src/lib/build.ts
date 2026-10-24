@@ -6,6 +6,8 @@ export interface BuildOptions {
   /** injeta o runtime com console, REPL e navegação (preview) */
   console: boolean;
   autoInject: boolean;
+  /** conteúdo inicial do localStorage do preview (persistido pelo editor) */
+  storage?: Record<string, string>;
 }
 
 export interface BuildResult {
@@ -206,7 +208,7 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
   }
   const needRuntime = opts.console || anyEsm || Object.keys(vfs).some((k) => !/\.html?$/i.test(k));
   if (needRuntime) {
-    const cfg = { console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null };
+    const cfg = { console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null, storage: opts.storage ?? {} };
     const json = JSON.stringify(cfg).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     const tag = `<script data-poiesis-runtime>${runtimeSrc.replace("/*__CFG__*/", json)}</script>`;
     if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, (h) => h + tag);

@@ -351,6 +351,7 @@ const SHORTCUTS: [string, [string, string][]][] = [
       ["Quebra de linha", "Alt+Z"],
       ["Expandir Emmet", "Tab"],
       ["Envolver com Emmet", "Ctrl+Shift+A"],
+      ["Inserir / trocar ícone", "Alt+I"],
     ],
   ],
 ];

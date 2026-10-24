@@ -58,3 +58,15 @@ font = instancer.instantiateVariableFont(font, {"wght": 400, "GRAD": 0, "opsz": 
 font.flavor = "woff2"
 font.save(OUT)
 print("salvo", OUT, OUT.stat().st_size // 1024, "KB")
+
+# ---- fontes completas (só eixo FILL) para o seletor de ícones e lista de nomes ----
+import json as _json
+names = re.findall(r'"([a-z0-9_]+)"', (ROOT / "node_modules/material-symbols/index.d.ts").read_text())
+(ROOT / "src/lib/symbol-names.json").write_text(_json.dumps(names, separators=(",", ":")))
+(ROOT / "public/fonts").mkdir(parents=True, exist_ok=True)
+for style in ["outlined", "rounded", "sharp"]:
+    full = TTFont(ROOT / f"node_modules/material-symbols/material-symbols-{style}.woff2")
+    full = instancer.instantiateVariableFont(full, {"wght": 400, "GRAD": 0, "opsz": 24})
+    full.flavor = "woff2"
+    full.save(ROOT / f"public/fonts/material-symbols-{style}-full.woff2")
+print("fontes completas e", len(names), "nomes gerados")

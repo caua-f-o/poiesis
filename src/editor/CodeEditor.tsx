@@ -48,7 +48,7 @@ import {
 import { colorPicker } from "@replit/codemirror-css-color-picker";
 import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { poiesisHighlight, poiesisTheme, structuralTags } from "./theme";
-import { completionSources, langOfKind, setCompletionFile, type Lang } from "./completions";
+import { autoOpenCompletion, completionSources, langOfKind, setCompletionFile, langAt, type Lang } from "./completions";
 import { definitionExtensions, gotoTarget, openDefinition, symbolAt, type Sym } from "./definition";
 import type { Loc } from "@/lib/indexer";
 import type { PFile, Settings } from "@/lib/types";
@@ -86,6 +86,7 @@ export type EditorAction =
   | "emmetDec";
 
 export interface MenuContext {
+  icon: string | null;
   sym: Sym | null;
   hasTarget: boolean;
   selection: string;
@@ -104,6 +105,12 @@ export interface EditorHandle {
   showDefinition(): void;
   gotoDefinition(): boolean;
   symbolAtCursor(): Sym | null;
+  /** linguagem no cursor (HTML embutido em <style>/<script> conta como css/js) */
+  langAtCursor(): Lang;
+  /** se o cursor está no nome de um ícone dentro de <span class="material-symbols-…"> */
+  iconAtCursor(): { from: number; to: number; name: string; style: string } | null;
+  /** insere texto no cursor (ou substitui um trecho) e, opcionalmente, um <link> antes de </head> — numa só transação */
+  insert(text: string, opts?: { replace?: { from: number; to: number }; headLink?: string }): boolean;
 }
 
 interface Props {
@@ -133,6 +140,20 @@ const langFor = (file: PFile): Extension[] => {
       return /\.svg$/i.test(file.name) ? [html()] : [];
   }
 };
+
+/** Nome de ícone sob o cursor dentro de <span class="material-symbols-…">nome</span>. */
+function iconAt(v: EditorView): { from: number; to: number; name: string; style: string } | null {
+  const head = v.state.selection.main.head;
+  const line = v.state.doc.lineAt(head);
+  const re = /<[a-zA-Z][\w-]*\b[^<>]*class\s*=\s*["'][^"']*material-symbols-(outlined|rounded|sharp)[^"']*["'][^<>]*>(\s*)([a-z0-9_]*)\s*</g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line.text))) {
+    const from = line.from + m.index + m[0].indexOf(">", m[0].indexOf("material-symbols")) + 1 + m[2].length;
+    const to = from + m[3].length;
+    if (head >= from && head <= to) return { from, to, name: m[3], style: m[1] };
+  }
+  return null;
+}
 
 export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(props, ref) {
   const { file, settings, dark, errorLine } = props;
@@ -233,6 +254,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
           override: completionSources(() => langOfKind(f.kind, f.name)),
           addToOptions: [],
         }),
+        autoOpenCompletion,
         rectangularSelection(),
         crosshairCursor(),
         highlightActiveLine(),
@@ -383,7 +405,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
     contextAt: (x, y) => {
       const v = view.current;
       const lang = fileLang();
-      if (!v) return { sym: null, hasTarget: false, selection: "", lang };
+      if (!v) return { sym: null, icon: null, hasTarget: false, selection: "", lang };
       const pos = v.posAtCoords({ x, y });
       if (pos != null) {
         const inSel = v.state.selection.ranges.some((r) => pos >= r.from && pos <= r.to && !r.empty);
@@ -392,7 +414,33 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
       const head = pos ?? v.state.selection.main.head;
       const sym = symbolAt(v.state, head, lang);
       const r = v.state.selection.main;
-      return { sym, hasTarget: !!(sym && gotoTarget(sym, fileRef.current)), selection: v.state.sliceDoc(r.from, r.to), lang };
+      const icon = iconAt(v);
+      return { sym: icon ? null : sym, icon: icon?.name ?? null, hasTarget: !!(sym && gotoTarget(sym, fileRef.current)), selection: v.state.sliceDoc(r.from, r.to), lang: langAt(v.state, head, lang) };
+    },
+    langAtCursor: () => {
+      const v = view.current;
+      return v ? langAt(v.state, v.state.selection.main.head, fileLang()) : fileLang();
+    },
+    iconAtCursor: () => (view.current ? iconAt(view.current) : null),
+    insert: (text, opts = {}) => {
+      const v = view.current;
+      if (!v) return false;
+      const r = opts.replace ?? v.state.selection.main;
+      const changes: { from: number; to?: number; insert: string }[] = [{ from: r.from, to: r.to, insert: text }];
+      if (opts.headLink) {
+        const doc = v.state.doc.toString();
+        const close = /([ \t]*)<\/head\s*>/i.exec(doc);
+        const open = /<head\b[^>]*>/i.exec(doc);
+        if (close) changes.push({ from: close.index, insert: `${close[1]}  ${opts.headLink}\n` });
+        else if (open) changes.push({ from: open.index + open[0].length, insert: `\n  ${opts.headLink}` });
+        else changes.push({ from: 0, insert: opts.headLink + "\n" });
+      }
+      changes.sort((a, b) => a.from - b.from);
+      const set = v.state.changes(changes);
+      const end = set.mapPos(r.from, -1) + text.length;
+      v.dispatch({ changes: set, selection: { anchor: end }, scrollIntoView: true, userEvent: "input.icon" });
+      v.focus();
+      return true;
     },
     symbolAtCursor: () => {
       const v = view.current;

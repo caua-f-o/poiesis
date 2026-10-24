@@ -28,6 +28,12 @@ export interface ProjectIndex {
   keyframes: Map<string, SymbolEntry>;
   functions: Map<string, SymbolEntry>;
   tags: Map<string, number>;
+  /** atributos data-* (forma kebab, sem o prefixo "data-") */
+  dataAttrs: Map<string, SymbolEntry>;
+  /** chaves usadas em localStorage/sessionStorage */
+  storageKeys: Map<string, SymbolEntry>;
+  /** famílias de fonte declaradas (@font-face) ou carregadas (Google Fonts) */
+  fonts: Map<string, SymbolEntry>;
 }
 
 const empty = (): ProjectIndex => ({
@@ -38,6 +44,9 @@ const empty = (): ProjectIndex => ({
   keyframes: new Map(),
   functions: new Map(),
   tags: new Map(),
+  dataAttrs: new Map(),
+  storageKeys: new Map(),
+  fonts: new Map(),
 });
 
 let current: ProjectIndex = empty();
@@ -123,6 +132,12 @@ function indexCss(ix: ProjectIndex, f: PFile, css: string, base: number, starts:
     const from = m.index + m[0].indexOf("--");
     entry(ix.vars, m[1]).uses.push(loc(from, from + m[1].length));
   }
+  // @font-face { font-family: "X" }
+  const ff = /@font-face\s*\{[^}]*?font-family\s*:\s*(["']?)([^;"'}]+)\1/g;
+  while ((m = ff.exec(text))) {
+    const from = m.index + m[0].lastIndexOf(m[2]);
+    entry(ix.fonts, m[2].trim()).defs.push(loc(from, from + m[2].length, "@font-face"));
+  }
   // keyframes
   const kf = /@keyframes\s+([\w-]+)/g;
   while ((m = kf.exec(text))) {
@@ -166,6 +181,18 @@ function indexHtml(ix: ProjectIndex, f: PFile) {
   while ((m = ids.exec(text))) {
     const valStart = m.index + m[0].indexOf(m[1]) + 1;
     if (m[2].trim()) idEntry(ix.ids, m[2].trim()).defs.push(loc(valStart, valStart + m[2].length, tagAt(m.index)));
+  }
+  const data = /\sdata-([\w-]+)\s*(?==|[\s>\/])/g;
+  while ((m = data.exec(text))) {
+    const from = m.index + m[0].indexOf("data-");
+    entry(ix.dataAttrs, m[1].toLowerCase()).defs.push(loc(from, from + 5 + m[1].length, tagAt(m.index)));
+  }
+  const gf = /fonts\.googleapis\.com\/css2?\?([^"'\s>]+)/g;
+  while ((m = gf.exec(text))) {
+    for (const fam of m[1].matchAll(/family=([^&:;]+)/g)) {
+      const name = decodeURIComponent(fam[1].replace(/\+/g, " "));
+      entry(ix.fonts, name).defs.push(loc(m.index, m.index + m[0].length, "Google Fonts"));
+    }
   }
   const tags = /<([a-zA-Z][\w-]*)/g;
   while ((m = tags.exec(text))) {
@@ -225,6 +252,19 @@ function indexJs(ix: ProjectIndex, f: PFile, js: string, base: number, starts: n
       const from = argStart + s.index + 1;
       entry(ix.classes, s[2]).uses.push(loc(from, from + s[2].length));
     }
+  }
+  const ds = /\.dataset\.([A-Za-z_$][\w$]*)|\.dataset\[\s*(["'`])([\w-]+)\2\s*\]/g;
+  while ((m = ds.exec(text))) {
+    const raw = m[1] ?? m[3];
+    const kebab = m[1] ? raw.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()) : raw;
+    const from = m.index + m[0].indexOf(raw);
+    entry(ix.dataAttrs, kebab).uses.push(loc(from, from + raw.length));
+  }
+  const st = /\b(?:localStorage|sessionStorage)\.(setItem|getItem|removeItem)\(\s*(["'`])([^"'`]+)\2/g;
+  while ((m = st.exec(text))) {
+    const from = m.index + m[0].indexOf(m[2]) + 1;
+    const e = entry(ix.storageKeys, m[3]);
+    (m[1] === "setItem" ? e.defs : e.uses).push(loc(from, from + m[3].length));
   }
   const cn = /\bclassName\s*=\s*(["'`])([^"'`]*)\1/g;
   while ((m = cn.exec(text))) {
