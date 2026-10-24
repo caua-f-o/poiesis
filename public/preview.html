@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poiesis · preview</title>
+  <link rel="icon" href="icons/icon-32.png">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0a0a0c; }
+    iframe { border: 0; width: 100%; height: 100%; display: block; }
+    #empty {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #6c6962; font: 13px/1.5 system-ui, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="empty">Aguardando o editor…</div>
+  <iframe id="palco" src="sandbox.html" title="Preview"></iframe>
+  <script src="preview.js"></script>
+</body>
+</html>

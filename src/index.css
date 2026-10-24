@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Material Symbols Rounded";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("./assets/fonts/msr.woff2") format("woff2");
+}
+
+@layer base {
+  :root {
+    --background: 240 7% 6%;
+    --foreground: 43 26% 88%;
+    --card: 240 8% 8%;
+    --card-foreground: 43 26% 88%;
+    --popover: 240 8% 10%;
+    --popover-foreground: 43 26% 88%;
+    --primary: 38 59% 64%;
+    --primary-foreground: 30 11% 7%;
+    --secondary: 240 8% 13%;
+    --secondary-foreground: 43 26% 88%;
+    --muted: 240 8% 13%;
+    --muted-foreground: 39 6% 55%;
+    --accent: 240 7% 16%;
+    --accent-foreground: 43 26% 92%;
+    --destructive: 4 64% 62%;
+    --destructive-foreground: 43 26% 95%;
+    --border: 240 7% 16%;
+    --input: 240 7% 18%;
+    --ring: 38 59% 64%;
+    --radius: 0.5rem;
+
+    --ink-0: #0a0a0c;
+    --ink-1: #0f0f12;
+    --ink-2: #121215;
+    --ink-3: #17171b;
+    --ink-4: #1d1d22;
+    --ink-5: #26262c;
+    --line: #202026;
+    --line-2: #2c2c33;
+    --paper: #e8e4da;
+    --paper-2: #a8a399;
+    --paper-3: #6c6962;
+    --gold: #d9b26f;
+    --gold-hi: #f2d394;
+    --gold-lo: #8a6d3d;
+    --verd: #74c7b4;
+    --rose: #ec8a80;
+    --amber: #e6b450;
+    --sky: #8cc7ec;
+
+    --font-ui: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-code: "JetBrains Mono Variable", ui-monospace, "Cascadia Code", Consolas, monospace;
+    --font-display: "Instrument Serif", Georgia, serif;
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ink-0);
+    color: var(--paper);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  .cm-content {
+    user-select: text;
+  }
+
+  ::selection {
+    background: #5a4a2c;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a30;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #3a3a42;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .msr {
+    font-family: "Material Symbols Rounded";
+    font-weight: 400;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    user-select: none;
+  }
+  .msr-fill {
+    font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-code {
+    font-family: var(--font-code);
+  }
+
+  /* botão de ferramenta compacto */
+  .tool {
+    @apply inline-flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-md px-1.5 text-[12px] font-medium transition-colors;
+    color: var(--paper-2);
+  }
+  .tool:hover {
+    background: var(--ink-4);
+    color: var(--paper);
+  }
+  .tool[data-on="true"] {
+    color: var(--gold);
+    background: color-mix(in srgb, var(--gold) 10%, transparent);
+  }
+  .tool:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .tool:focus-visible {
+    outline: 1px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  .eyebrow {
+    @apply text-[10.5px] font-semibold uppercase;
+    letter-spacing: 0.14em;
+    color: var(--paper-3);
+  }
+
+  .split-handle {
+    background: var(--line);
+    transition: background 0.15s;
+  }
+  .split-handle:hover,
+  .split-handle.is-dragging {
+    background: var(--gold-lo);
+  }
+
+  .kbd {
+    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded px-1 text-[10.5px] font-medium;
+    font-family: var(--font-ui);
+    color: var(--paper-2);
+    background: var(--ink-4);
+    box-shadow: inset 0 -1px 0 var(--line-2);
+  }
+
+  .dotgrid {
+    background-color: var(--ink-1);
+    background-image: radial-gradient(circle at 1px 1px, #24242a 1px, transparent 0);
+    background-size: 18px 18px;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot {
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.18s ease-out;
+}

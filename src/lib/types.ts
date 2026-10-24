@@ -1,0 +1,87 @@
+export type FileKind = "html" | "css" | "js" | "json" | "text" | "asset";
+
+export interface PFile {
+  id: string;
+  /** caminho relativo dentro do projeto, ex.: "css/style.css" */
+  name: string;
+  kind: FileKind;
+  /** texto para arquivos de código; data URL para assets binários */
+  content: string;
+  mime?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  files: PFile[];
+  /** id do HTML principal */
+  entry: string;
+  openTabs: string[];
+  activeFile: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type Layout = "split" | "stack" | "editor" | "preview";
+export type Device = "full" | "tablet" | "mobile";
+
+export interface Settings {
+  autoRun: boolean;
+  delay: number;
+  layout: Layout;
+  fontSize: number;
+  wrap: boolean;
+  tabSize: number;
+  emmet: boolean;
+  autoInject: boolean;
+  clearOnRun: boolean;
+  sidebar: boolean;
+  console: boolean;
+  device: Device;
+  landscape: boolean;
+}
+
+export interface Workspace {
+  version: 1;
+  projects: Record<string, Project>;
+  order: string[];
+  currentId: string;
+  settings: Settings;
+}
+
+/* ---------- console ---------- */
+
+export type Ser =
+  | { t: "str"; v: string }
+  | { t: "num"; v: string }
+  | { t: "bool"; v: boolean }
+  | { t: "null" }
+  | { t: "undef" }
+  | { t: "sym"; v: string }
+  | { t: "fn"; v: string; s?: string }
+  | { t: "err"; n: string; v: string; s: string }
+  | { t: "el"; v: string }
+  | { t: "date"; v: string }
+  | { t: "re"; v: string }
+  | { t: "circ" }
+  | { t: "more"; v: string }
+  | { t: "arr"; c: string; n: number; e: Ser[] }
+  | { t: "map"; c: string; n: number; e: [Ser, Ser][] }
+  | { t: "obj"; c: string; e: [string, Ser][]; x?: boolean };
+
+export type LogLevel = "log" | "info" | "warn" | "error" | "debug" | "result" | "input" | "system";
+
+export interface SourceRef {
+  file: string;
+  line: number;
+  col: number;
+}
+
+export interface LogEntry {
+  id: number;
+  level: LogLevel;
+  args: Ser[];
+  src?: SourceRef;
+  count: number;
+  time: number;
+}

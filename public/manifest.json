@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Poiesis",
+  "short_name": "Poiesis",
+  "version": "1.0.0",
+  "description": "Do código à forma: editor web (HTML, CSS, JS) com preview ao vivo, console e importação de projetos, direto no navegador.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Abrir Poiesis",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "open-editor": {
+      "suggested_key": { "default": "Alt+Shift+P" },
+      "description": "Abrir o editor Poiesis"
+    }
+  },
+  "permissions": ["storage", "unlimitedStorage"],
+  "sandbox": {
+    "pages": ["sandbox.html"]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-pointer-lock allow-presentation; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: data: blob:; style-src 'self' 'unsafe-inline' https: http: data: blob:; img-src * data: blob:; font-src * data: blob:; media-src * data: blob:; connect-src * data: blob:; worker-src * data: blob:; frame-src * data: blob:; child-src * data: blob:"
+  },
+  "minimum_chrome_version": "116"
+}
