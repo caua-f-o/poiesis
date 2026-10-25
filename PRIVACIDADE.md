@@ -6,7 +6,8 @@ O Poiesis é um editor de código que roda inteiramente no seu navegador. **Ele 
 
 ## O que fica guardado e onde
 
-- **Seus projetos, arquivos e configurações** (tema, tamanho da fonte, layout) ficam no armazenamento local da extensão (`chrome.storage.local`), dentro do seu próprio navegador.
+- **Seus projetos, arquivos e configurações** (tema, tamanho da fonte, layout) ficam no armazenamento local da extensão (IndexedDB e `chrome.storage.local`), dentro do seu próprio navegador.
+- **O histórico de versões** dos seus projetos (as versões automáticas e os pontos de restauração) também fica no navegador, no banco local da extensão (IndexedDB). Você pode exportar, importar ou apagar esse histórico pelo painel Histórico.
 - **O `localStorage` das páginas que você cria** e abre no preview também fica guardado ali, separado por projeto.
 - Nada disso sai do seu computador. O Poiesis não tem servidor, conta, login, análise de uso, telemetria nem anúncios.
 - Se você desinstalar a extensão, o Chrome apaga esses dados. Antes de desinstalar, use **Exportar** (`.zip`) ou **Backup** para guardar seus projetos.
@@ -23,7 +24,7 @@ A extensão em si não faz nenhuma requisição de rede. As conexões que podem 
 | Permissão | Para quê |
 | --- | --- |
 | `storage` | Guardar seus projetos e configurações no próprio navegador. |
-| `unlimitedStorage` | Projetos com imagens e fontes podem passar do limite padrão de 10 MB do armazenamento local. |
+| `unlimitedStorage` | Projetos com imagens e fontes, e o histórico de versões, podem passar da cota padrão de armazenamento da extensão. |
 
 ## Contato
 
@@ -33,4 +34,4 @@ Dúvidas ou problemas: abra uma issue em <https://github.com/caua-f-o/poiesis/is
 
 ## Privacy policy (English)
 
-Poiesis is a code editor that runs entirely in your browser. **It does not collect, transmit or sell any of your data.** Your projects, files and settings are stored only in the extension's local storage (`chrome.storage.local`) on your device. There is no server, account, analytics, telemetry or advertising. The extension itself makes no network requests. Code you write runs in an isolated sandbox page, and any network request it makes (for example, loading a library from a CDN) is one you wrote. Permissions: `storage` saves your projects locally, and `unlimitedStorage` lets projects with images and fonts exceed the default 10 MB limit. Contact: <https://github.com/caua-f-o/poiesis/issues>.
+Poiesis is a code editor that runs entirely in your browser. **It does not collect, transmit or sell any of your data.** Your projects, files, settings and version history are stored only in the extension's local storage (IndexedDB and `chrome.storage.local`) on your device. There is no server, account, analytics, telemetry or advertising. The extension itself makes no network requests. Code you write runs in an isolated sandbox page, and any network request it makes (for example, loading a library from a CDN) is one you wrote. Permissions: `storage` saves your projects locally, and `unlimitedStorage` lets projects with images and fonts, and their version history, exceed the default storage quota. Contact: <https://github.com/caua-f-o/poiesis/issues>.

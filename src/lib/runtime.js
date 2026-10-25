@@ -3,6 +3,7 @@
   var W = window;
   var parentWin = W.parent;
   var origin = "*";
+  var SESSION = CFG.session || "";
   var files = CFG.files || {};
   var dir = CFG.dir || "";
 
@@ -63,7 +64,7 @@
     for (var k0 in initial || {}) data[k0] = String(initial[k0]);
     function sync() {
       if (!persist) return;
-      try { parentWin.postMessage({ __poiesis: 1, type: "storage", data: data }, origin); } catch (e) {}
+      try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "storage", data: data }, origin); } catch (e) {}
     }
     var api = {
       getItem: function (k) { k = String(k); return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
@@ -207,7 +208,7 @@
 
   function post(level, args, src) {
     try {
-      parentWin.postMessage({ __poiesis: 1, type: "log", level: level, args: args, src: src || null }, origin);
+      parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "log", level: level, args: args, src: src || null }, origin);
     } catch (e) {}
   }
 
@@ -251,7 +252,7 @@
   };
   C.clear = function () {
     orig.clear();
-    try { parentWin.postMessage({ __poiesis: 1, type: "clear" }, origin); } catch (e) {}
+    try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "clear" }, origin); } catch (e) {}
   };
   var counts = {};
   C.count = function (label) {
@@ -342,14 +343,14 @@
     if (!href || href.charAt(0) === "#" || /^javascript:/i.test(href) || a.hasAttribute("download")) return;
     e.preventDefault();
     if (/^(https?:)?\/\//i.test(href) || /^mailto:/i.test(href)) {
-      parentWin.postMessage({ __poiesis: 1, type: "open", href: a.href }, origin);
+      parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "open", href: a.href }, origin);
     } else {
-      parentWin.postMessage({ __poiesis: 1, type: "navigate", path: resolve(href), hash: href.split("#")[1] || "" }, origin);
+      parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "navigate", path: resolve(href), hash: href.split("#")[1] || "" }, origin);
     }
   });
 
   W.addEventListener("load", function () {
-    parentWin.postMessage({ __poiesis: 1, type: "ready", ms: Math.round(performance.now()) }, origin);
+    parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "ready", ms: Math.round(performance.now()) }, origin);
   });
 })(/*__CFG__*/);
 //# sourceURL=poiesis-runtime.js

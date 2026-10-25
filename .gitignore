@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# testes E2E
+tests/**/__pycache__
+tests/**/*.png

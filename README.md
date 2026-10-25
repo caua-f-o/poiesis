@@ -34,6 +34,13 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - **JSON, Markdown e texto**: JSON com realce, validação (mensagens em português, correção de vírgula sobrando e aspas simples) e formatação; Markdown com realce (inclusive blocos de código HTML/CSS/JS/JSON), formatação e pré-visualização ao lado, só código ou só visualização — imagens e links do projeto funcionam; `.txt` e `.md` com corretor ortográfico do navegador.
 - **Menu de contexto** com definição, ir para definição, renomear, mostrar o elemento no preview, recortar/copiar/colar, comentar, formatar, operações de linha, maiúsculas/minúsculas, dobrar/desdobrar, ações do Emmet e busca no projeto.
 
+**Histórico local** — versões do projeto sem Git nem nuvem:
+- Guarda uma versão sozinho depois de alguns segundos sem editar, e antes de excluir, importar, substituir ou restaurar.
+- Pontos manuais com nome e nota, que podem ser fixados.
+- Comparação lado a lado ou em linha, com o estado atual ou com a versão anterior.
+- Restauração de um trecho, de um arquivo ou do projeto inteiro, sempre com volta.
+- Exportar e importar com verificação por hash.
+
 **Projeto**
 - Pastas de verdade: criar, renomear, mover e excluir; arrastar arquivos e pastas entre elas; soltar arquivos do computador direto numa pasta.
 - Importar **adicionando** ao projeto (sem substituir nada — nomes repetidos ganham sufixo), **mesclando** ou como **projeto novo**, escolhendo a pasta de destino.
@@ -63,6 +70,10 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 | Alternar layout | `Ctrl+\` |
 | Recarregar preview | `Ctrl+R` |
 
+## Roadmap
+
+Próximos passos (pasta local no computador, painel de Network e APIs, inspetor visual e Extension Studio) em [`ROADMAP.md`](ROADMAP.md).
+
 ## Privacidade
 
 O Poiesis não coleta nenhum dado: projetos e configurações ficam só no armazenamento local do navegador, e a extensão não faz requisições de rede. Os detalhes estão em [`PRIVACIDADE.md`](PRIVACIDADE.md).
@@ -81,7 +92,7 @@ pnpm build   # gera a extensão em dist/
 
 Stack: React 19, TypeScript, Vite, Tailwind, Radix/shadcn (reestilizado em Material 3), CodeMirror 6, núcleo do Emmet (com integração própria em `src/editor/emmet.ts`), Prettier, fflate. Fontes locais: Roboto Flex, JetBrains Mono, Instrument Serif e Material Symbols Rounded. Descrições de reserva do MDN via `@vscode/web-custom-data` (`python3 design/build_mdn.py`).
 
-`pnpm promo` regenera as imagens promocionais em `store/`. O texto da ficha da Chrome Web Store, as justificativas de permissão e as respostas da aba de privacidade estão em [`store/FICHA.md`](store/FICHA.md).
+`pnpm test:e2e` roda os testes de ponta a ponta em `tests/e2e/` contra o `dist/` (precisa de Python com Playwright e Chromium). `pnpm promo` regenera as imagens promocionais em `store/`. O texto da ficha da Chrome Web Store, as justificativas de permissão e as respostas da aba de privacidade estão em [`store/FICHA.md`](store/FICHA.md).
 
 O build também gera `dist/LICENSE` e `dist/THIRD_PARTY_LICENSES.txt`, que traz a licença de cada pacote que entra na extensão.
 

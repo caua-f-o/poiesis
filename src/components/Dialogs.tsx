@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/command";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { formatBytes, storageUsage, type StorageUsage } from "@/lib/db";
 
 /* ---------------- preferências ---------------- */
 
@@ -33,6 +34,22 @@ function Row({ icon, title, hint, children }: { icon: string; title: string; hin
       </div>
       {children}
     </div>
+  );
+}
+
+function StorageRow({ open }: { open: boolean }) {
+  const [u, setU] = useState<StorageUsage | null>(null);
+  useEffect(() => {
+    if (open) storageUsage().then(setU);
+  }, [open]);
+  if (!u) return null;
+  const pct = u.quota ? Math.min(100, (u.usage / u.quota) * 100) : 0;
+  return (
+    <Row icon="database" title="Espaço usado no navegador" hint={`${formatBytes(u.usage)}${u.quota ? ` de ${formatBytes(u.quota)} disponíveis` : ""} — projetos, histórico e preview`}>
+      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-md-high" role="meter" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Espaço usado">
+        <div className={cn("h-full rounded-full", pct > 85 ? "bg-[var(--rose)]" : "bg-md-primary")} style={{ width: `${Math.max(pct, 2)}%` }} />
+      </div>
+    </Row>
   );
 }
 
@@ -115,6 +132,40 @@ export function SettingsDialog({
           <Row icon="mop" title="Limpar console ao executar">
             <Switch checked={settings.clearOnRun} onCheckedChange={(v) => onChange({ clearOnRun: v })} />
           </Row>
+          <div className="eyebrow pb-1 pt-4">Histórico local</div>
+          <Row icon="history" title="Versão automática" hint={settings.history.interval ? `Depois de ${settings.history.interval} s sem editar, se algo mudou` : "Desligada — só pontos manuais e antes de operações"}>
+            <div className="md-seg">
+              {[0, 30, 45, 60, 120].map((n) => (
+                <button key={n} data-on={settings.history.interval === n} onClick={() => onChange({ history: { ...settings.history, interval: n } })} className="!px-2.5 text-[12px]">
+                  {n === 0 ? "Off" : n < 60 ? `${n}s` : `${n / 60}min`}
+                </button>
+              ))}
+            </div>
+          </Row>
+          <Row icon="auto_delete" title="Versões automáticas por projeto" hint="As mais antigas saem primeiro; pontos manuais e fixados ficam">
+            <div className="md-seg">
+              {[50, 150, 500].map((n) => (
+                <button key={n} data-on={settings.history.maxAuto === n} onClick={() => onChange({ history: { ...settings.history, maxAuto: n } })} className="!px-2.5 text-[12px]">
+                  {n}
+                </button>
+              ))}
+            </div>
+          </Row>
+          <Row icon="photo_size_select_large" title="Arquivos grandes nas versões automáticas" hint="Acima disso, o arquivo só entra em pontos manuais e antes de operações">
+            <div className="md-seg">
+              {[1, 5, 20].map((n) => (
+                <button
+                  key={n}
+                  data-on={settings.history.maxFileSize === n * 1024 * 1024}
+                  onClick={() => onChange({ history: { ...settings.history, maxFileSize: n * 1024 * 1024 } })}
+                  className="!px-2.5 text-[12px]"
+                >
+                  {n} MB
+                </button>
+              ))}
+            </div>
+          </Row>
+          <StorageRow open={open} />
           <Row icon="backup" title="Backup" hint="Todos os projetos num .json">
             <div className="flex gap-1">
               <button className="md-btn md-btn-text" onClick={onBackup}>

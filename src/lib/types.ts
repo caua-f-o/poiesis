@@ -28,7 +28,7 @@ export interface Project {
 
 export type Layout = "split" | "stack" | "editor" | "preview";
 export type Device = "full" | "tablet" | "mobile";
-export type Panel = "files" | "search" | "projects" | "themes";
+export type Panel = "files" | "search" | "projects" | "history" | "themes";
 
 export interface Settings {
   autoRun: boolean;
@@ -47,6 +47,16 @@ export interface Settings {
   console: boolean;
   device: Device;
   landscape: boolean;
+  history: HistorySettings;
+}
+
+export interface HistorySettings {
+  /** segundos sem editar até o snapshot automático; 0 desliga */
+  interval: number;
+  /** quantas versões automáticas manter por projeto */
+  maxAuto: number;
+  /** arquivos maiores que isso (bytes) ficam fora dos snapshots automáticos */
+  maxFileSize: number;
 }
 
 export interface Workspace {

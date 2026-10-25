@@ -41,6 +41,11 @@ PREVIEW E CONSOLE
 • Console de verdade com objetos expansíveis e um campo para rodar JavaScript na página
 • localStorage, sessionStorage, módulos ES e fetch de arquivos do projeto funcionam no preview
 
+HISTÓRICO LOCAL
+• Versões automáticas enquanto você trabalha e antes de excluir, importar ou substituir
+• Pontos de restauração com nome e nota
+• Compare versões lado a lado e restaure um trecho, um arquivo ou o projeto inteiro — sem Git, sem nuvem
+
 PROJETOS
 • Vários projetos com pastas, arrastar e soltar, e modelos para começar
 • Importar arquivos e pastas (adicionando, mesclando ou como projeto novo)
@@ -68,6 +73,7 @@ A complete web code editor in a Chrome tab: write HTML, CSS and JavaScript and s
 • Emmet, go to definition, project-wide rename, search and replace, Prettier formatting
 • 3,932 Material Symbols icons picker
 • Flicker-free live preview with phone/tablet modes, pop-out window and a real console with a REPL
+• Local version history: automatic snapshots, named restore points, side-by-side diff and restore (no Git, no cloud)
 • Multiple projects with folders, import/export (.zip or single HTML), JSON, Markdown and text files
 • 9 themes, Material Design 3 interface
 
@@ -112,7 +118,7 @@ Guarda localmente os projetos do usuário (arquivos, pastas, abas abertas), as c
 **Justificativa da permissão `unlimitedStorage`:**
 
 ```
-Os projetos podem conter imagens, fontes e outros arquivos importados pelo usuário, que facilmente passam do limite padrão de 10 MB do chrome.storage.local. Sem essa permissão, salvar um projeto maior falharia e o usuário perderia trabalho.
+Os projetos podem conter imagens, fontes e outros arquivos importados pelo usuário, e o Poiesis guarda localmente um histórico de versões desses projetos (IndexedDB). Isso facilmente passa das cotas padrão do armazenamento da extensão. Sem essa permissão, salvar um projeto maior ou uma versão do histórico falharia e o usuário perderia trabalho.
 ```
 
 **Você usa código remoto?** Resposta recomendada: **Sim**, com a justificativa abaixo. O próprio pacote da extensão não carrega nem executa código remoto. Mas o código que o usuário escreve pode incluir `<script src="https://...">` de CDNs, e isso roda na página sandbox. A política da loja isenta páginas sandbox e iframes isolados da regra de código remoto, mas pede que essa comunicação seja declarada. Declarar evita qualquer leitura de omissão.

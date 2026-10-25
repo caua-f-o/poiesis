@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { zipSync } from "fflate";
 import type { Device, Layout, LogEntry, Panel, PFile, Project, Settings, Workspace } from "@/lib/types";
+import { parsePreviewMessage, SESSION } from "@/lib/bridge";
 import { loadWorkspace, newProject, saveWorkspace, isExtension, openPopout, pushPopout, freshWorkspace } from "@/lib/store";
 import { buildPage } from "@/lib/build";
 import {
@@ -32,6 +33,9 @@ import { TopAppBar } from "@/components/TopAppBar";
 import { Explorer, allFolders } from "@/components/Explorer";
 import { SearchPanel } from "@/components/SearchPanel";
 import { ProjectsPanel, ThemesPanel } from "@/components/SidePanels";
+import { CompareDialog, HistoryPanel } from "@/components/HistoryPanel";
+import { createSnapshot, deleteOrphans, exportHistory, importHistory, prune, restoreProject, type Reason, type Revision } from "@/lib/history";
+import { dbErrorMessage } from "@/lib/db";
 import { EditorTabs } from "@/components/EditorTabs";
 import { EditorContextMenu, symLabel } from "@/components/EditorContextMenu";
 import { Preview, type PreviewHandle } from "@/components/Preview";
@@ -116,6 +120,10 @@ export default function App() {
   const [mdMode, setMdMode] = useState<"code" | "split" | "view">(() => (localStorage.getItem("poiesis:md-mode") as "code" | "split" | "view") || "split");
   const [symbolPicker, setSymbolPicker] = useState<{ lang: "html" | "css" | "js" | "other"; current: { from: number; to: number; name: string; style: string } | null } | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ sym: Sym; label: string; name: string; count: number } | null>(null);
+  /** muda a cada revisão gravada (o painel de histórico recarrega) */
+  const [historyTick, setHistoryTick] = useState(0);
+  const [compareRev, setCompareRev] = useState<Revision | null>(null);
+  const historyInput = useRef<HTMLInputElement>(null);
   const [searchSeed, setSearchSeed] = useState<{ q: string; n: number } | null>(null);
   const [formatting, setFormatting] = useState(false);
   const [popout, setPopout] = useState(false);
@@ -147,19 +155,24 @@ export default function App() {
 
   /* ---------------- carregar / salvar ---------------- */
   useEffect(() => {
-    loadWorkspace().then((w) => {
+    loadWorkspace().then(({ ws: w, migrated, error }) => {
       setWs(w);
       const p = w.projects[w.currentId];
       setPreviewPage(p.activeFile && p.files.find((f) => f.id === p.activeFile)?.kind === "html" ? p.activeFile : p.entry);
+      if (migrated) toast.success("Projetos migrados para o novo armazenamento local", { description: "Mais rápido e pronto para o histórico de versões." });
+      if (error) toast.error("Banco local indisponível — usando o armazenamento antigo", { description: error, duration: 10000 });
     });
   }, []);
 
+  const saveError = useRef<string | null>(null);
   useEffect(() => {
     if (!ws) return;
     setSaving("saving");
     const t = setTimeout(async () => {
-      const ok = await saveWorkspace(ws);
-      setSaving(ok ? "saved" : "error");
+      const r = await saveWorkspace(ws);
+      setSaving(r.ok ? "saved" : "error");
+      if (!r.ok && r.error !== saveError.current) toast.error("Não foi possível salvar", { description: r.error, duration: 10000 });
+      saveError.current = r.ok ? null : (r.error ?? null);
     }, 500);
     return () => clearTimeout(t);
   }, [ws]);
@@ -197,6 +210,53 @@ export default function App() {
     setWs((w) => (w ? { ...w, settings: { ...w.settings, ...patch } } : w));
   }, []);
 
+  /* ---------------- histórico local ---------------- */
+  /** Grava uma versão do projeto (por padrão o atual). Não bloqueia a interface. */
+  const checkpoint = useCallback((reason: Reason, p?: Project | null, opts?: { label?: string; note?: string }) => {
+    const w = wsRef.current;
+    const target = p ?? (w ? w.projects[w.currentId] : null);
+    if (!target) return Promise.resolve(null);
+    const hs = w?.settings.history;
+    return createSnapshot(target, reason, { ...opts, maxFileSize: hs?.maxFileSize })
+      .then(async (rev) => {
+        setHistoryTick((t) => t + 1);
+        if (reason === "auto" && hs) await prune(target.id, hs.maxAuto).catch(() => 0);
+        return rev;
+      })
+      .catch((e) => {
+        toast.error("Não foi possível gravar a versão no histórico", { description: dbErrorMessage(e), duration: 10000 });
+        return null;
+      });
+  }, []);
+
+  // snapshot automático depois de um tempo sem editar
+  const autoTimer = useRef<{ t: ReturnType<typeof setTimeout>; project: Project } | null>(null);
+  const flushAuto = useCallback(() => {
+    const a = autoTimer.current;
+    if (!a) return;
+    clearTimeout(a.t);
+    autoTimer.current = null;
+    checkpoint("auto", a.project);
+  }, [checkpoint]);
+  useEffect(() => {
+    const p = project;
+    const secs = settings?.history.interval ?? 0;
+    if (!p || !secs) return;
+    // trocou de projeto com versão pendente: grava a do projeto anterior agora
+    if (autoTimer.current && autoTimer.current.project.id !== p.id) flushAuto();
+    if (autoTimer.current) clearTimeout(autoTimer.current.t);
+    autoTimer.current = { project: p, t: setTimeout(() => flushAuto(), secs * 1000) };
+  }, [project?.files, project?.folders]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const onHide = () => document.visibilityState === "hidden" && flushAuto();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flushAuto);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flushAuto);
+    };
+  }, [flushAuto]);
+
   /* ---------------- build do preview ---------------- */
   const previewPageRef = useRef(previewPage);
   previewPageRef.current = previewPage;
@@ -205,7 +265,7 @@ export default function App() {
     const w = wsRef.current;
     if (!w) return;
     const p = w.projects[w.currentId];
-    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject, storage: previewStorage.current[p.id] });
+    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject, storage: previewStorage.current[p.id], session: SESSION });
     if (w.settings.clearOnRun) setLogs([]);
     setErrorLine(null);
     setBusy(true);
@@ -230,11 +290,12 @@ export default function App() {
   /* ---------------- mensagens do preview ---------------- */
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data;
-      if (!d || d.__poiesis !== 1) return;
       // só aceita mensagens vindas do iframe sandbox do preview (que repassa as da página do usuário)
       const src = preview.current?.source();
       if (!src || e.source !== src) return;
+      // e só no formato esperado: versão, sessão deste editor, tipo e campos conferidos
+      const d = parsePreviewMessage(e.data);
+      if (!d) return;
       const w = wsRef.current;
       const p = w ? w.projects[w.currentId] : null;
       switch (d.type) {
@@ -395,6 +456,7 @@ export default function App() {
   const deleteFile = (id: string) => {
     if (!project) return;
     const snapshot = project;
+    checkpoint("pre-delete", project);
     const f = project.files.find((x) => x.id === id);
     updateProject((p) => {
       const files = p.files.filter((x) => x.id !== id);
@@ -407,6 +469,7 @@ export default function App() {
   const deleteFolder = (path: string) => {
     if (!project) return;
     const snapshot = project;
+    checkpoint("pre-delete", project);
     const inside = (n: string) => n === path || n.startsWith(path + "/");
     const gone = new Set(project.files.filter((f) => inside(f.name)).map((f) => f.id));
     updateProject((p) => {
@@ -444,6 +507,7 @@ export default function App() {
   /* ---------------- importação ---------------- */
   const addFiles = useCallback(
     (incoming: PFile[], dir: string, mode: "add" | "merge") => {
+      checkpoint("pre-import");
       let entryId: string | null = null;
       let firstOpen: string | null = null;
       let renamed = 0;
@@ -477,7 +541,7 @@ export default function App() {
         description: renamed ? `${renamed} renomeado(s) para não sobrescrever` : undefined,
       });
     },
-    [updateProject]
+    [updateProject, checkpoint]
   );
 
   const receive = async (list: Incoming[], directDir: string | null = null) => {
@@ -526,6 +590,7 @@ export default function App() {
       updatedAt: now,
     };
     setWs((w) => (w ? { ...w, projects: { ...w.projects, [p.id]: p }, order: [p.id, ...w.order], currentId: p.id } : w));
+    checkpoint("import", p, { label: "Importado" });
     setPreviewPage(html?.id ?? null);
     setLogs([]);
     toast.success(`Projeto "${opts.name}" criado`, { description: `${incoming.length} arquivos importados` });
@@ -581,6 +646,7 @@ export default function App() {
 
   const deleteProject = () => {
     if (!ws || !project) return;
+    checkpoint("pre-delete", project);
     const snapshot = ws;
     const order = ws.order.filter((x) => x !== project.id);
     let next: Workspace;
@@ -602,6 +668,58 @@ export default function App() {
       },
       duration: 8000,
     });
+  };
+
+  /* ---------------- restauração do histórico ---------------- */
+  const restoreFrom = async (rev: Revision, paths?: string[]) => {
+    const p = wsRef.current?.projects[rev.projectId];
+    if (!p) return void toast.error("Este projeto não existe mais");
+    const pre = await checkpoint("pre-restore", p);
+    if (!pre) return; // sem a versão de segurança, não restaura
+    try {
+      const next = await restoreProject(p, rev, paths);
+      updateProject((cur) => (cur.id === next.id ? next : cur));
+      setCompareRev(null);
+      const what = paths ? (paths.length === 1 ? paths[0] : `${paths.length} arquivos`) : "Projeto";
+      toast.success(`${what} restaurado`, {
+        description: "O estado anterior ficou salvo no histórico.",
+        action: { label: "Desfazer", onClick: () => restoreFrom(pre) },
+      });
+      if (!paths) setPreviewPage(next.entry || null);
+    } catch (e) {
+      toast.error("Falha ao restaurar", { description: dbErrorMessage(e) });
+    }
+  };
+
+  const applyChunks = async (rev: Revision, path: string, content: string) => {
+    const p = wsRef.current?.projects[rev.projectId];
+    if (!p) return;
+    const pre = await checkpoint("pre-restore", p, { label: `Antes de trazer trechos de ${path}` });
+    if (!pre) return;
+    updateProject((cur) => (cur.id === p.id ? { ...cur, files: cur.files.map((f) => (f.name === path ? { ...f, content } : f)) } : cur));
+    toast.success(`Trechos aplicados em ${path}`, { action: { label: "Desfazer", onClick: () => restoreFrom(pre, [path]) } });
+  };
+
+  const exportProjectHistory = async () => {
+    if (!project) return;
+    try {
+      const data = await exportHistory(project);
+      download(`${slug(project.name)}-historico.json`, new Blob([JSON.stringify(data)], { type: "application/json" }));
+      toast.success(`${data.revisions.length} versões exportadas`, { description: "O arquivo pode conter tudo o que já existiu no projeto." });
+    } catch (e) {
+      toast.error("Falha ao exportar o histórico", { description: dbErrorMessage(e) });
+    }
+  };
+
+  const importProjectHistory = async (file: File | undefined) => {
+    if (!file || !project) return;
+    try {
+      const r = await importHistory(JSON.parse(await file.text()), project.id);
+      setHistoryTick((t) => t + 1);
+      toast.success(`${r.added} versões importadas para "${project.name}"`, { description: r.skipped ? `${r.skipped} já existiam` : undefined });
+    } catch (e) {
+      toast.error("Histórico não importado", { description: (e as Error).message });
+    }
   };
 
   /* ---------------- exportação ---------------- */
@@ -694,6 +812,7 @@ export default function App() {
     const { sym } = renameTarget;
     setRenameTarget(null);
     const edits = symbolEdits(sym);
+    checkpoint("pre-rename", project, { label: `Antes de renomear ${renameTarget.label}` });
     const byFile = new Map<string, Loc[]>();
     for (const l of edits) byFile.set(l.fileId, [...(byFile.get(l.fileId) ?? []), l]);
     const snapshot = project;
@@ -722,6 +841,7 @@ export default function App() {
   const replaceAll = (changes: { id: string; content: string }[], count: number) => {
     if (!project) return;
     const snapshot = project;
+    checkpoint("pre-replace", project);
     const map = new Map(changes.map((c) => [c.id, c.content]));
     updateProject((p) => ({ ...p, files: p.files.map((f) => (map.has(f.id) ? { ...f, content: map.get(f.id)! } : f)) }));
     toast.success(`${count} substituições`, { action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) } });
@@ -1182,6 +1302,21 @@ export default function App() {
                 {settings.panel === "projects" && (
                   <ProjectsPanel projects={ws.order.map((id) => ws.projects[id])} currentId={project.id} onSwitch={switchProject} onNew={createProject} />
                 )}
+                {settings.panel === "history" && (
+                  <HistoryPanel
+                    project={project}
+                    projectIds={ws.order}
+                    tick={historyTick}
+                    onCheckpoint={(label, note) =>
+                      checkpoint("manual", project, { label, note }).then((r) => r && toast.success("Ponto de restauração criado", { description: label || undefined }))
+                    }
+                    onCompare={setCompareRev}
+                    onExport={exportProjectHistory}
+                    onImport={() => historyInput.current?.click()}
+                    onCleanOrphans={() => deleteOrphans(ws.order).then(() => setHistoryTick((t) => t + 1))}
+                    onChanged={() => setHistoryTick((t) => t + 1)}
+                  />
+                )}
                 {settings.panel === "themes" && <ThemesPanel current={settings.theme} onPick={(id) => updateSettings({ theme: id })} />}
               </aside>
             )}
@@ -1274,6 +1409,25 @@ export default function App() {
           onRestore={() => backupInput.current?.click()}
         />
         <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <CompareDialog
+          open={!!compareRev}
+          project={project}
+          revision={compareRev}
+          onOpenChange={(o) => !o && setCompareRev(null)}
+          onRestoreProject={(rev) => restoreFrom(rev)}
+          onRestoreFiles={(rev, paths) => restoreFrom(rev, paths)}
+          onApplyContent={applyChunks}
+        />
+        <input
+          ref={historyInput}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={(e) => {
+            importProjectHistory(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
         <SymbolPicker
           open={!!symbolPicker}
           onOpenChange={(o) => !o && setSymbolPicker(null)}

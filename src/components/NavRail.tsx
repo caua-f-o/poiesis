@@ -9,6 +9,7 @@ const ITEMS: { id: Panel; icon: string; label: string; key: string }[] = [
   { id: "files", icon: "folder", label: "Arquivos", key: "Ctrl+B" },
   { id: "search", icon: "manage_search", label: "Buscar", key: "Ctrl+Shift+F" },
   { id: "projects", icon: "stacks", label: "Projetos", key: "" },
+  { id: "history", icon: "history", label: "Histórico", key: "" },
   { id: "themes", icon: "palette", label: "Temas", key: "" },
 ];
 
@@ -47,12 +48,12 @@ export function NavRail({ panel, open, onSelect, onSettings, onHelp }: Props) {
       })}
       <div className="flex-1" />
       <Tip label="Atalhos de teclado" side="right">
-        <button onClick={onHelp} className="md-icon-btn">
+        <button onClick={onHelp} className="md-icon-btn" aria-label="Atalhos de teclado">
           <Icon name="keyboard" size={21} />
         </button>
       </Tip>
       <Tip label="Preferências" side="right">
-        <button onClick={onSettings} className="md-icon-btn">
+        <button onClick={onSettings} className="md-icon-btn" aria-label="Preferências">
           <Icon name="settings" size={21} />
         </button>
       </Tip>

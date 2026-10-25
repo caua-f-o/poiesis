@@ -1,7 +1,7 @@
 {
   "name": "poiesis",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, como extensão do Chrome.",
   "license": "GPL-3.0-only",
   "author": "Cauã F. O.",
@@ -20,7 +20,8 @@
     "icons": "python3 design/subset_icons.py",
     "lint": "oxlint",
     "preview": "vite preview",
-    "promo": "python3 design/promo.py"
+    "promo": "python3 design/promo.py",
+    "test:e2e": "python3 tests/e2e/run_all.py"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",
@@ -32,6 +33,7 @@
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.13.1",
     "@codemirror/lint": "^6.9.7",
+    "@codemirror/merge": "^6.12.3",
     "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
