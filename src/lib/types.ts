@@ -28,7 +28,7 @@ export interface Project {
 
 export type Layout = "split" | "stack" | "editor" | "preview";
 export type Device = "full" | "tablet" | "mobile";
-export type Panel = "files" | "search" | "projects" | "history" | "themes";
+export type Panel = "files" | "search" | "projects" | "history" | "extension" | "themes";
 
 export interface Settings {
   autoRun: boolean;

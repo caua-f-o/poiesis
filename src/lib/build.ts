@@ -15,6 +15,18 @@ export interface BuildOptions {
   session?: string;
   /** regras de mock ativas (de poiesis.mocks.json) */
   mocks?: MockRule[];
+  /** projeto de extensão: APIs chrome.* simuladas no preview */
+  ext?: ExtPreview;
+}
+
+export interface ExtPreview {
+  manifest: unknown;
+  /** papel da página no manifesto ("popup" encolhe para o conteúdo, como no Chrome) */
+  view: string | null;
+  storage: { local?: Record<string, unknown>; sync?: Record<string, unknown> };
+  messages: Record<string, unknown>;
+  /** namespace chrome.X → permissão exigida */
+  apiPerms: Record<string, string>;
 }
 
 export interface BuildResult {
@@ -220,9 +232,9 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
     vfs[f.name] = entry;
     vfs[f.name.toLowerCase()] = entry;
   }
-  const needRuntime = opts.console || !!opts.mocks?.length || anyEsm || Object.keys(vfs).some((k) => !/\.html?$/i.test(k));
+  const needRuntime = opts.console || !!opts.ext || !!opts.mocks?.length || anyEsm || Object.keys(vfs).some((k) => !/\.html?$/i.test(k));
   if (needRuntime) {
-    const cfg = { session: opts.session ?? "", page: page?.name ?? "", net: { mocks: opts.mocks ?? [] }, console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null, storage: opts.storage ?? {} };
+    const cfg = { session: opts.session ?? "", page: page?.name ?? "", net: { mocks: opts.mocks ?? [] }, ext: opts.ext ?? null, console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null, storage: opts.storage ?? {} };
     const json = JSON.stringify(cfg).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     const tag = `<script data-poiesis-runtime>${runtimeSrc.replace("/*__CFG__*/", () => json)}</script>`;
     if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, (h) => h + tag);

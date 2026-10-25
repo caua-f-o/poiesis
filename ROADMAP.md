@@ -13,7 +13,7 @@ Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos m
 | **2 — Pasta local** (módulo 7) | Editar diretamente uma pasta do computador, como opção nas preferências | ✅ 2.5.0 |
 | **3 — Network MVP** (módulo 4) | Captura de `fetch`/XHR do preview, mocks locais, latência e erros simulados | ✅ 2.6.0 |
 | **4 — Inspetor MVP** (módulo 1) | Seleção no preview, árvore DOM, estilos computados, box model, edição temporária | ✅ 2.7.0 |
-| **5 — Extension Studio MVP** (módulo 5) | Templates MV3, editor de manifesto sincronizado, validação e exportação em ZIP | Planejado |
+| **5 — Extension Studio MVP** (módulo 5) | Templates MV3, editor de manifesto sincronizado, validação e exportação em ZIP | ✅ 2.8.0 |
 | **6 — Integração avançada** | Edição persistente pelo inspetor (com mapeamento seguro), fixtures, mocks de `chrome.*`, snapshots coordenados entre módulos | Planejado |
 | **7 — Companhia e foco** (módulos 8 e 9) | Mascotes Lúmen e Pólen; botão de música de fundo para foco | Planejado |
 
@@ -46,6 +46,37 @@ O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runt
 **Pendências da Fase 1:**
 - Filtro de "segredos conhecidos" (por exemplo `.env`) nos snapshots: hoje o limite por tamanho de arquivo cobre o caso dos binários grandes.
 - Recuperar um projeto excluído direto pelo histórico: hoje o histórico dele fica guardado até ser limpo, mas não há botão para recriar o projeto.
+
+## O que já existe (fase 5)
+
+**Extension Studio** (painel **Extensão** na barra lateral; o núcleo fica em `src/lib/ext/`, a interface em `src/components/ExtensionPanel.tsx`, `ManifestForm.tsx` e `ExtensionDialogs.tsx`):
+
+- **Nova extensão:** modelos combináveis de popup, página de opções, painel lateral, content script e service worker, além do par **principal/complementar** para conversa entre extensões. O código vem comentado em português, com ícones PNG gerados e um LEIA-ME de como testar. "Transformar este projeto em extensão" cria um manifesto para um projeto que já existe.
+- **Manifesto em formulário ou JSON** (alternância na barra de abas): identidade, popup, ícones, service worker, opções, painel lateral, content scripts, permissões e `externally_connectable`. O formulário regrava o JSON a partir do objeto inteiro, então **campos que ele não conhece continuam lá** (e aparecem listados). Com JSON inválido, o formulário não sobrescreve nada e manda corrigir no JSON.
+- **Validação** antes de exportar, mostrada no painel, no formulário e sublinhada no editor (com correção de um clique quando dá):
+  - manifesto: versão, nome, chaves do MV2 (`browser_action`, `background.scripts`, CSP em texto, `web_accessible_resources` antigos), chaves desconhecidas com sugestão, padrões de URL, IDs de extensão, `default_locale` × `_locales`;
+  - arquivos: tudo o que o manifesto referencia existe (com aviso de maiúsculas/minúsculas), ícones em PNG com o tamanho declarado, nomes que o Chrome recusa (começando com `_`);
+  - CSP do MV3 nas páginas: scripts inline (com "Mover para um arquivo .js"), `onclick=`, `javascript:`, scripts de outros sites, `eval`;
+  - APIs × permissões: `chrome.storage` sem `"storage"`, permissão declarada e não usada, APIs que não existem em content scripts, `import` em service worker sem `"type": "module"`, DOM no service worker.
+- **Permissões explicadas:** o que cada uma faz, o risco, o aviso que o Chrome mostra na instalação, e a diferença entre `permissions`, `optional_permissions` e `host_permissions`. O painel resume o que o usuário vai ver ao instalar.
+- **Mapa da extensão:** manifesto → pontos de entrada → scripts, estilos e módulos que cada um carrega, e a lista dos arquivos sem vínculo.
+- **Preview simulado:** popup (encolhe para o conteúdo, até 800×600, como no Chrome), opções e painel lateral (~360 px), com `chrome.*` **simulado** e marcado como simulação: `storage` (guardado por projeto, com `onChanged` e cota do `sync`), `runtime` (`getManifest`, `getURL`, `openOptionsPage`…), `tabs`/`windows` com uma aba fictícia, `i18n` com `_locales`, `permissions`, `sidePanel.open`, `action`. Sem a permissão, a API fica `undefined`, como no Chrome. Mensagens para o service worker, content scripts ou outras extensões **falham com o mesmo erro do Chrome** e avisam no console que precisam da extensão instalada.
+- **Gerador de ícones:** de uma imagem (do projeto ou do computador, inclusive SVG) para PNGs de 16, 32, 48 e 128 px, com margem e fundo opcionais, já ligados no manifesto.
+- **Exportação:** ZIP com o `manifest.json` na raiz, pronto para "Carregar sem compactação". Ficam fora só os arquivos do Poiesis (`poiesis.mocks.json` e fixtures que a extensão não usa) e nomes que escapariam da pasta. Com erros, um diálogo lista tudo antes ("Corrigir antes" ou "Exportar mesmo assim").
+- Mudanças pelo formulário, correções, ícones e "transformar em extensão" gravam antes uma versão no histórico ("Antes de mudar a extensão").
+
+**Segurança desta fase:**
+- O `chrome.*` do preview é JavaScript comum dentro da página isolada: não há nenhuma API privilegiada por trás, e o Poiesis continua só com `storage` e `unlimitedStorage`.
+- As mensagens novas do preview (`ext-storage` e `ext-size`) passam pela mesma ponte validada: sessão, tipo, objeto JSON e limite de tamanho; o tamanho do popup é limitado. Testado com mensagem forjada.
+- No modelo principal/complementar, o Chrome só entrega mensagens dos IDs de `externally_connectable.ids`, e o service worker confere o remetente e o formato de novo antes de agir. IDs inválidos são recusados no formulário.
+- O texto do manifesto e dos arquivos é sempre exibido como texto (testado com HTML no nome).
+
+**Testes:** `tests/e2e/extensao.py` (58 verificações). Além do editor, o teste **exporta o ZIP, descompacta e carrega a extensão num Chromium de verdade**: o service worker sobe, o popup usa o `chrome.storage` real, o content script roda numa página de `matches`, opções e painel lateral abrem sem erro de CSP; e duas extensões exportadas (principal e complementar) conversam depois da configuração, enquanto uma terceira, não autorizada, é recusada.
+
+**Pendências da Fase 5:**
+- O preview não roda o service worker nem content scripts (limite do navegador). Simular `onMessage` entre popup e service worker fica para a Fase 6, junto com fixtures de `chrome.*`.
+- Faltam modelos de DevTools, nova aba e regras de `declarativeNetRequest`.
+- A validação de `_locales` confere o arquivo do idioma padrão, mas ainda não as chaves `__MSG_…__` uma a uma.
 
 ## O que já existe (fase 4)
 

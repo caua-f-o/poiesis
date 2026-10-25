@@ -447,6 +447,349 @@
     } catch (e2) {}
   }
 
+  /* ---------------- APIs chrome.* simuladas (Extension Studio) ----------------
+   * Só existe quando o projeto é uma extensão. Nada aqui tem privilégio: é JavaScript
+   * comum dentro da página isolada, imitando o formato das APIs para o popup, as opções
+   * e o painel lateral funcionarem no preview. Cada uso aparece no console como
+   * "[chrome simulado]", e o que não dá para simular avisa em vez de fingir. */
+  if (CFG.ext) (function (X) {
+    var M = X.manifest || {};
+    var granted = {};
+    (M.permissions || []).forEach(function (p) { granted[p] = true; });
+    var optional = {};
+    (M.optional_permissions || []).forEach(function (p) { optional[p] = true; });
+    var hosts = [].concat(M.host_permissions || []);
+    var said = {};
+    function say(level, msg, once) {
+      if (once) { if (said[msg]) return; said[msg] = 1; }
+      try { W.console[level].apply(W.console, ["[chrome simulado] " + msg].concat([].slice.call(arguments, 3))); } catch (e) {}
+    }
+    function clone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+    function done(cb, value, err) {
+      if (typeof cb === "function") {
+        setTimeout(function () {
+          if (err) api.runtime.lastError = { message: err.message };
+          try { cb(value); } finally { api.runtime.lastError = undefined; }
+        }, 0);
+        return undefined;
+      }
+      return err ? Promise.reject(err) : Promise.resolve(value);
+    }
+    function makeEvent(name) {
+      var ls = [];
+      return {
+        addListener: function (fn) { if (typeof fn === "function" && ls.indexOf(fn) < 0) ls.push(fn); },
+        removeListener: function (fn) { var i = ls.indexOf(fn); if (i >= 0) ls.splice(i, 1); },
+        hasListener: function (fn) { return ls.indexOf(fn) >= 0; },
+        hasListeners: function () { return ls.length > 0; },
+        _emit: function () { var a = arguments; ls.slice().forEach(function (fn) { try { fn.apply(null, a); } catch (e) { setTimeout(function () { throw e; }); } }); },
+        toString: function () { return "[evento simulado " + name + "]"; },
+      };
+    }
+    function noReceiver() { return new Error("Could not establish connection. Receiving end does not exist."); }
+
+    /* --- storage --- */
+    var stores = { local: clone(X.storage && X.storage.local) || {}, sync: clone(X.storage && X.storage.sync) || {}, session: {} };
+    var anyChanged = makeEvent("storage.onChanged");
+    function area(name) {
+      var changed = makeEvent("storage." + name + ".onChanged");
+      function persist() {
+        if (name === "session") return;
+        try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "ext-storage", area: name, data: stores[name] }, origin); } catch (e) {}
+      }
+      function emit(ch) {
+        if (!Object.keys(ch).length) return;
+        changed._emit(ch);
+        anyChanged._emit(ch, name);
+      }
+      return {
+        QUOTA_BYTES: name === "sync" ? 102400 : name === "session" ? 10485760 : 10485760,
+        onChanged: changed,
+        get: function (keys, cb) {
+          if (typeof keys === "function") { cb = keys; keys = null; }
+          say("info", "chrome.storage." + name + ": dados guardados no Poiesis, por projeto (não é o armazenamento real da extensão).", true);
+          var data = stores[name], out = {};
+          if (keys == null) out = clone(data);
+          else if (typeof keys === "string") { if (keys in data) out[keys] = clone(data[keys]); }
+          else if (Array.isArray(keys)) keys.forEach(function (k) { if (k in data) out[k] = clone(data[k]); });
+          else if (typeof keys === "object") for (var k in keys) out[k] = k in data ? clone(data[k]) : keys[k];
+          return done(cb, out);
+        },
+        set: function (items, cb) {
+          var next = {}, k, ch = {};
+          for (k in stores[name]) next[k] = stores[name][k];
+          for (k in items || {}) {
+            if (items[k] === undefined) continue;
+            var v = clone(items[k]);
+            if (JSON.stringify(next[k]) !== JSON.stringify(v)) ch[k] = { oldValue: clone(next[k]), newValue: v };
+            next[k] = v;
+          }
+          var size = JSON.stringify(next).length;
+          var quota = name === "sync" ? 102400 : 10485760;
+          if (size > quota && !(name === "local" && granted.unlimitedStorage)) return done(cb, undefined, new Error("Resource::kQuotaBytes quota exceeded"));
+          stores[name] = next;
+          persist();
+          emit(ch);
+          return done(cb, undefined);
+        },
+        remove: function (keys, cb) {
+          var ch = {};
+          [].concat(keys).forEach(function (k) { if (k in stores[name]) { ch[k] = { oldValue: stores[name][k] }; delete stores[name][k]; } });
+          persist();
+          emit(ch);
+          return done(cb, undefined);
+        },
+        clear: function (cb) {
+          var ch = {};
+          for (var k in stores[name]) ch[k] = { oldValue: stores[name][k] };
+          stores[name] = {};
+          persist();
+          emit(ch);
+          return done(cb, undefined);
+        },
+        getBytesInUse: function (keys, cb) {
+          if (typeof keys === "function") { cb = keys; keys = null; }
+          var d = stores[name], sub = {};
+          if (keys == null) sub = d; else [].concat(keys).forEach(function (k) { if (k in d) sub[k] = d[k]; });
+          return done(cb, JSON.stringify(sub).length);
+        },
+        setAccessLevel: function (o, cb) { return done(cb, undefined); },
+      };
+    }
+    var storage = { local: area("local"), sync: area("sync"), session: area("session"), managed: { get: function (k, cb) { return done(typeof k === "function" ? k : cb, {}); }, onChanged: makeEvent("storage.managed.onChanged") }, onChanged: anyChanged };
+
+    /* --- runtime --- */
+    var runtime = {
+      id: "simulado-pelo-poiesis",
+      lastError: undefined,
+      getManifest: function () { return clone(M); },
+      getURL: function (p) { return "/" + String(p || "").replace(/^\/+/, ""); },
+      getPlatformInfo: function (cb) { return done(cb, { os: /Win/.test(navigator.platform) ? "win" : /Mac/.test(navigator.platform) ? "mac" : /CrOS/.test(navigator.userAgent) ? "cros" : "linux", arch: "x86-64", nacl_arch: "x86-64" }); },
+      sendMessage: function () {
+        var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null;
+        var ext = typeof a[0] === "string" && a.length > 1;
+        say("warn", ext
+          ? "runtime.sendMessage para outra extensão (" + a[0] + "): no preview não há outras extensões. Teste com as duas instaladas no navegador."
+          : "runtime.sendMessage: no preview não há service worker para responder. Teste com a extensão instalada.");
+        return done(cb, undefined, noReceiver());
+      },
+      connect: function () {
+        say("warn", "runtime.connect: no preview não há service worker; a porta não se conecta a nada.");
+        var port = { name: "", postMessage: function () {}, disconnect: function () {}, onMessage: makeEvent("Port.onMessage"), onDisconnect: makeEvent("Port.onDisconnect") };
+        setTimeout(function () { port.onDisconnect._emit(port); }, 0);
+        return port;
+      },
+      openOptionsPage: function (cb) {
+        var p = (M.options_ui && M.options_ui.page) || M.options_page;
+        if (!p) return done(cb, undefined, new Error("Could not create an options page."));
+        say("info", "runtime.openOptionsPage: o preview mostra " + p + ".");
+        try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "navigate", path: String(p).replace(/^\.?\//, ""), hash: "" }, origin); } catch (e) {}
+        return done(cb, undefined);
+      },
+      reload: function () { say("warn", "runtime.reload: no preview, recarrega só esta página."); location.reload(); },
+      setUninstallURL: function (u, cb) { return done(cb, undefined); },
+      requestUpdateCheck: function (cb) { return done(cb, { status: "no_update" }); },
+      getContexts: function (f, cb) { return done(cb, []); },
+      onMessage: makeEvent("runtime.onMessage"),
+      onMessageExternal: makeEvent("runtime.onMessageExternal"),
+      onConnect: makeEvent("runtime.onConnect"),
+      onConnectExternal: makeEvent("runtime.onConnectExternal"),
+      onInstalled: makeEvent("runtime.onInstalled"),
+      onStartup: makeEvent("runtime.onStartup"),
+      onSuspend: makeEvent("runtime.onSuspend"),
+      onUpdateAvailable: makeEvent("runtime.onUpdateAvailable"),
+    };
+
+    /* --- abas e janelas (uma aba fictícia) --- */
+    function fakeTab() {
+      var t = { id: 1, index: 0, windowId: 1, active: true, highlighted: true, pinned: false, incognito: false, status: "complete", discarded: false, autoDiscardable: true, groupId: -1 };
+      if (granted.tabs || hosts.length) { t.url = "https://example.com/"; t.title = "Aba simulada"; }
+      else say("info", "tabs: sem a permissão \"tabs\" (ou host_permissions), url e title das abas vêm vazios — igual ao Chrome.", true);
+      return t;
+    }
+    var tabs = {
+      TAB_ID_NONE: -1,
+      query: function (q, cb) { say("info", "tabs.query devolve uma aba fictícia.", true); return done(cb, [fakeTab()]); },
+      get: function (id, cb) { return done(cb, fakeTab()); },
+      getCurrent: function (cb) { return done(cb, undefined); },
+      create: function (o, cb) {
+        var url = o && o.url ? String(o.url) : "";
+        if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+          say("info", "tabs.create(" + url + "): o preview mostra a página do projeto.");
+          try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "navigate", path: url.replace(/^\/+/, "").split(/[?#]/)[0], hash: "" }, origin); } catch (e) {}
+        } else if (/^https?:/i.test(url)) {
+          say("info", "tabs.create: abrindo " + url + " numa aba nova do navegador.");
+          try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "open", href: url }, origin); } catch (e) {}
+        } else say("warn", "tabs.create: não simulado para “" + url + "”.");
+        return done(cb, { id: 2, index: 1, windowId: 1, active: true, url: url });
+      },
+      update: function () { var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null; say("warn", "tabs.update: não há abas reais no preview."); return done(cb, fakeTab()); },
+      remove: function (id, cb) { say("warn", "tabs.remove: não há abas reais no preview."); return done(cb, undefined); },
+      reload: function () { var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null; say("warn", "tabs.reload: não há abas reais no preview."); return done(cb, undefined); },
+      sendMessage: function () {
+        var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null;
+        say("warn", "tabs.sendMessage: content scripts não rodam no preview, então ninguém responde. Teste com a extensão instalada, numa página de \"matches\".");
+        return done(cb, undefined, noReceiver());
+      },
+      captureVisibleTab: function () { var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null; say("warn", "tabs.captureVisibleTab: não simulado."); return done(cb, undefined, new Error("Não simulado no preview")); },
+      onUpdated: makeEvent("tabs.onUpdated"), onActivated: makeEvent("tabs.onActivated"), onCreated: makeEvent("tabs.onCreated"), onRemoved: makeEvent("tabs.onRemoved"),
+    };
+    var windows = {
+      WINDOW_ID_CURRENT: -2, WINDOW_ID_NONE: -1,
+      getCurrent: function (o, cb) { if (typeof o === "function") cb = o; return done(cb, { id: 1, focused: true, type: "normal", state: "normal", incognito: false }); },
+      getLastFocused: function (o, cb) { if (typeof o === "function") cb = o; return done(cb, { id: 1, focused: true, type: "normal", state: "normal", incognito: false }); },
+      getAll: function (o, cb) { if (typeof o === "function") cb = o; return done(cb, [{ id: 1, focused: true, type: "normal" }]); },
+      create: function (o, cb) { say("warn", "windows.create: não há janelas reais no preview."); return done(cb, { id: 2 }); },
+      update: function () { var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null; return done(cb, { id: 1 }); },
+      remove: function (id, cb) { return done(cb, undefined); },
+      onCreated: makeEvent("windows.onCreated"), onRemoved: makeEvent("windows.onRemoved"), onFocusChanged: makeEvent("windows.onFocusChanged"),
+    };
+
+    /* --- ação, painel lateral, i18n, permissões --- */
+    function quiet(ns, names, ret) {
+      var o = {};
+      names.forEach(function (n) {
+        o[n] = function () { var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null; say("info", ns + "." + n + " (sem efeito visível no preview)", true); return done(cb, ret ? ret(n, a) : undefined); };
+      });
+      return o;
+    }
+    var action = quiet("action", ["setBadgeText", "setBadgeBackgroundColor", "setBadgeTextColor", "setTitle", "setIcon", "setPopup", "enable", "disable"]);
+    action.getBadgeText = function (o, cb) { return done(cb, ""); };
+    action.getTitle = function (o, cb) { return done(cb, (M.action && M.action.default_title) || M.name || ""); };
+    action.getPopup = function (o, cb) { return done(cb, (M.action && M.action.default_popup) || ""); };
+    action.isEnabled = function (id, cb) { return done(typeof id === "function" ? id : cb, true); };
+    action.getUserSettings = function (cb) { return done(cb, { isOnToolbar: true }); };
+    action.openPopup = function (o, cb) { say("warn", "action.openPopup: não simulado."); return done(typeof o === "function" ? o : cb, undefined); };
+    action.onClicked = makeEvent("action.onClicked");
+
+    var sidePanel = quiet("sidePanel", ["setOptions", "setPanelBehavior"]);
+    sidePanel.getOptions = function (o, cb) { return done(cb, { enabled: true, path: M.side_panel && M.side_panel.default_path }); };
+    sidePanel.getPanelBehavior = function (cb) { return done(cb, { openPanelOnActionClick: false }); };
+    sidePanel.open = function (o, cb) {
+      var p = M.side_panel && M.side_panel.default_path;
+      if (p) {
+        say("info", "sidePanel.open: o preview mostra " + p + " (no Chrome ele abre ao lado da página).");
+        try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "navigate", path: String(p).replace(/^\.?\//, ""), hash: "" }, origin); } catch (e) {}
+      }
+      return done(cb, undefined);
+    };
+
+    var msgs = X.messages || {};
+    var i18n = {
+      getMessage: function (name, subs) {
+        var e = msgs[name] || msgs[String(name).toLowerCase()];
+        if (!e || typeof e.message !== "string") return "";
+        subs = subs == null ? [] : [].concat(subs).map(String);
+        var ph = e.placeholders || {};
+        return e.message
+          .replace(/\$([a-z0-9_@]+)\$/gi, function (m, k) { var p = ph[k] || ph[k.toLowerCase()]; return p && typeof p.content === "string" ? p.content : m; })
+          .replace(/\$(\d)/g, function (m, d) { return subs[+d - 1] != null ? subs[+d - 1] : ""; })
+          .replace(/\$\$/g, "$");
+      },
+      getUILanguage: function () { return (M.default_locale || navigator.language || "pt-BR").replace("_", "-"); },
+      getAcceptLanguages: function (cb) { return done(cb, [navigator.language]); },
+      detectLanguage: function (t, cb) { return done(cb, { isReliable: false, languages: [] }); },
+    };
+
+    function hasAll(o) {
+      var ok = true;
+      ((o && o.permissions) || []).forEach(function (p) { if (!granted[p]) ok = false; });
+      ((o && o.origins) || []).forEach(function (h) { if (hosts.indexOf(h) < 0) ok = false; });
+      return ok;
+    }
+    var permissions = {
+      contains: function (o, cb) { return done(cb, hasAll(o)); },
+      getAll: function (cb) { return done(cb, { permissions: Object.keys(granted), origins: hosts.slice() }); },
+      request: function (o, cb) {
+        var ok = true;
+        ((o && o.permissions) || []).forEach(function (p) { if (!granted[p] && !optional[p]) ok = false; });
+        say("info", "permissions.request: no Chrome o usuário vê um pedido; no preview a permissão " + (ok ? "é concedida" : "é negada (não está em optional_permissions)") + ".");
+        if (ok) ((o && o.permissions) || []).forEach(function (p) { granted[p] = true; });
+        if (ok) ((o && o.origins) || []).forEach(function (h) { if (hosts.indexOf(h) < 0) hosts.push(h); });
+        return done(cb, ok);
+      },
+      remove: function (o, cb) { ((o && o.permissions) || []).forEach(function (p) { delete granted[p]; }); return done(cb, true); },
+      onAdded: makeEvent("permissions.onAdded"), onRemoved: makeEvent("permissions.onRemoved"),
+    };
+
+    function swOnly(ns, names) {
+      var o = {};
+      names.forEach(function (n) {
+        o[n] = function () { var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null; say("warn", ns + "." + n + ": não é simulado no preview — funciona com a extensão instalada."); return done(cb, n.indexOf("get") === 0 ? (n === "getAll" ? [] : undefined) : n === "clear" || n === "clearAll" ? true : undefined); };
+      });
+      return o;
+    }
+    var alarms = swOnly("alarms", ["create", "get", "getAll", "clear", "clearAll"]);
+    alarms.onAlarm = makeEvent("alarms.onAlarm");
+    var contextMenus = swOnly("contextMenus", ["create", "update", "remove", "removeAll"]);
+    contextMenus.onClicked = makeEvent("contextMenus.onClicked");
+    var notifications = swOnly("notifications", ["create", "update", "clear", "getAll"]);
+    notifications.onClicked = makeEvent("notifications.onClicked");
+    notifications.onClosed = makeEvent("notifications.onClosed");
+    notifications.onButtonClicked = makeEvent("notifications.onButtonClicked");
+    var scripting = swOnly("scripting", ["executeScript", "insertCSS", "removeCSS", "registerContentScripts", "unregisterContentScripts", "getRegisteredContentScripts"]);
+    var commands = { getAll: function (cb) { var c = M.commands || {}; return done(cb, Object.keys(c).map(function (k) { return { name: k, description: (c[k] && c[k].description) || "", shortcut: "" }; })); }, onCommand: makeEvent("commands.onCommand") };
+
+    var known = { runtime: runtime, storage: storage, tabs: tabs, windows: windows, action: action, sidePanel: sidePanel, i18n: i18n, permissions: permissions, alarms: alarms, contextMenus: contextMenus, notifications: notifications, scripting: scripting, commands: commands };
+    var needs = X.apiPerms || {};
+    var api = {};
+    function namespace(ns) {
+      // API que o mock não conhece: avisa no uso em vez de quebrar
+      return new Proxy({}, {
+        get: function (t, k) {
+          if (typeof k !== "string") return undefined;
+          if (!(k in t)) t[k] = /^on[A-Z]/.test(k) ? makeEvent(ns + "." + k) : function () {
+            var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null;
+            say("warn", "chrome." + ns + "." + k + " não é simulada no preview. Teste com a extensão instalada.");
+            return done(cb, undefined);
+          };
+          return t[k];
+        },
+      });
+    }
+    var extra = {};
+    var root = new Proxy(api, {
+      get: function (t, k) {
+        if (typeof k !== "string") return undefined;
+        if (k === "runtime") return runtime;
+        var perm = needs[k];
+        if (perm && !granted[perm]) {
+          say("warn", "chrome." + k + " é undefined porque falta a permissão \"" + perm + "\" no manifesto (igual ao Chrome).", true);
+          return undefined;
+        }
+        if (known[k]) return known[k];
+        if (!extra[k]) extra[k] = namespace(k);
+        return extra[k];
+      },
+      has: function (t, k) { var perm = needs[k]; return !(perm && !granted[perm]); },
+    });
+    api.runtime = runtime;
+    try { Object.defineProperty(W, "chrome", { value: root, configurable: true, writable: true }); } catch (e) { try { W.chrome = root; } catch (e2) {} }
+    try { Object.defineProperty(W, "browser", { value: root, configurable: true, writable: true }); } catch (e) {}
+
+    /* --- tamanho do popup: como no Chrome, a página encolhe para o conteúdo (máx. 800×600) --- */
+    if (X.view === "popup") {
+      var st = document.createElement("style");
+      st.id = "__pz_popup";
+      st.textContent = ":where(html){width:max-content;max-width:800px;min-width:25px}";
+      (document.head || document.documentElement).appendChild(st);
+      var last = "";
+      var report = function () {
+        var el = document.documentElement;
+        var w = Math.ceil(el.getBoundingClientRect().width), h = Math.ceil(Math.max(el.scrollHeight, document.body ? document.body.scrollHeight : 0));
+        var key = w + "x" + h;
+        if (key === last) return;
+        last = key;
+        try { parentWin.postMessage({ __poiesis: 1, v: 1, s: SESSION, type: "ext-size", w: w, h: h }, origin); } catch (e) {}
+      };
+      W.addEventListener("load", report);
+      document.addEventListener("DOMContentLoaded", function () {
+        report();
+        try { new ResizeObserver(report).observe(document.documentElement); if (document.body) new ResizeObserver(report).observe(document.body); } catch (e) {}
+      });
+    }
+  })(CFG.ext);
+
   if (!CFG.console) return;
 
   /* ---------------- serialização para o console ---------------- */
@@ -695,7 +1038,7 @@
     if (el === INS.overlay) return true;
     if (el.hasAttribute("data-poiesis-runtime") || el.hasAttribute("data-poiesis-auto")) return true;
     if (el.tagName === "SCRIPT" && el.type === "importmap" && el.textContent.indexOf("@poiesis/") >= 0) return true;
-    if (el.id === "__pz_states" || el.id === "__pz_cursor") return true;
+    if (el.id === "__pz_states" || el.id === "__pz_cursor" || el.id === "__pz_popup") return true;
     return false;
   }
   function nid(n) {

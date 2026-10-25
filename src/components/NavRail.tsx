@@ -10,6 +10,7 @@ const ITEMS: { id: Panel; icon: string; label: string; key: string }[] = [
   { id: "search", icon: "manage_search", label: "Buscar", key: "Ctrl+Shift+F" },
   { id: "projects", icon: "stacks", label: "Projetos", key: "" },
   { id: "history", icon: "history", label: "Histórico", key: "" },
+  { id: "extension", icon: "extension", label: "Extensão", key: "" },
   { id: "themes", icon: "palette", label: "Temas", key: "" },
 ];
 

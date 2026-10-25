@@ -21,7 +21,9 @@ export type PreviewMessage =
   | { type: "open"; href: string }
   | { type: "ready"; ms: number }
   | { type: "net"; entry: NetEntry }
-  | { type: "inspect"; msg: InspectMessage };
+  | { type: "inspect"; msg: InspectMessage }
+  | { type: "ext-storage"; area: "local" | "sync"; data: Record<string, unknown> }
+  | { type: "ext-size"; w: number; h: number };
 
 const LEVELS = new Set<LogLevel>(["log", "info", "warn", "error", "debug", "result", "input", "system"]);
 const MAX_ARGS = 100;
@@ -73,6 +75,19 @@ export function parsePreviewMessage(d: unknown, session = SESSION): PreviewMessa
     }
     case "ready":
       return typeof d.ms === "number" ? { type: "ready", ms: d.ms } : null;
+    case "ext-storage": {
+      // chrome.storage simulado: só objetos JSON, com limite de tamanho
+      if ((d.area !== "local" && d.area !== "sync") || !isObj(d.data)) return null;
+      let size = 0;
+      try {
+        size = JSON.stringify(d.data).length;
+      } catch {
+        return null;
+      }
+      return size <= MAX_STORAGE ? { type: "ext-storage", area: d.area, data: d.data } : null;
+    }
+    case "ext-size":
+      return typeof d.w === "number" && typeof d.h === "number" && Number.isFinite(d.w) && Number.isFinite(d.h) ? { type: "ext-size", w: Math.max(0, Math.min(4000, d.w)), h: Math.max(0, Math.min(4000, d.h)) } : null;
     default:
       return null;
   }

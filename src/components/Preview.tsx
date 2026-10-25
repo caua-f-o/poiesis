@@ -46,7 +46,11 @@ interface Props {
   picking?: boolean;
   onPick?(): void;
   onExportHtml(): void;
+  /** projeto de extensão: papel da página (popup, painel lateral…) e tamanho medido do popup */
+  ext?: { role: string | null; size: { w: number; h: number } | null };
 }
+
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref) {
   const host = useRef<HTMLIFrameElement>(null);
@@ -80,6 +84,13 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
   }, []);
 
   const dev = p.device === "full" ? null : DEVICES[p.device];
+  // extensão: o popup encolhe para o conteúdo (25–800 × 25–600) e o painel lateral tem ~360 px
+  const extFrame =
+    !dev && p.ext?.role === "popup"
+      ? { w: clamp(p.ext.size?.w ?? 360, 25, 800), h: clamp(p.ext.size?.h ?? 240, 25, 600), label: "Popup simulado" }
+      : !dev && p.ext?.role === "sidepanel"
+        ? { w: 360, h: Math.max(200, size.h - 56), label: "Painel lateral simulado" }
+        : null;
   const dw = dev ? (p.landscape ? dev.h : dev.w) : 0;
   const dh = dev ? (p.landscape ? dev.w : dev.h) : 0;
   const pad = 40;
@@ -116,6 +127,14 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {p.ext && (
+          <Tip label="Extensão: as APIs chrome.* são simuladas (veja o console). Service worker e content scripts não rodam aqui; para testar de verdade, exporte e carregue em chrome://extensions.">
+            <span className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-md-secondary-c px-2.5 text-[11.5px] font-medium text-md-on-secondary-c" data-pz="ext-sim" tabIndex={0}>
+              <Icon name="extension" size={15} /> {p.ext.role === "popup" ? "Popup" : p.ext.role === "sidepanel" ? "Painel lateral" : p.ext.role === "options" ? "Opções" : "Extensão"} · simulado
+            </span>
+          </Tip>
+        )}
 
         <span className="ml-1 hidden shrink-0 font-code text-[10.5px] tabular-nums text-md-outline 2xl:inline">
           {dev ? `${dw}×${dh} · ${Math.round(scale * 100)}%` : `${size.w}×${size.h}`}
@@ -160,10 +179,11 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
       </div>
 
       {/* palco */}
-      <div ref={area} className={cn("relative min-h-0 flex-1 overflow-hidden", dev && "dotgrid")}>
+      <div ref={area} className={cn("relative min-h-0 flex-1 overflow-hidden", (dev || extFrame) && "dotgrid")}>
         <div
-          className={cn("absolute", dev ? "left-1/2 top-1/2" : "inset-0")}
-          style={dev ? { width: dw, height: dh, transform: `translate(-50%, calc(-50% - 6px)) scale(${scale})` } : undefined}
+          className={cn("absolute", dev ? "left-1/2 top-1/2" : extFrame ? (p.ext?.role === "sidepanel" ? "right-4 top-4" : "right-6 top-4") : "inset-0")}
+          style={dev ? { width: dw, height: dh, transform: `translate(-50%, calc(-50% - 6px)) scale(${scale})` } : extFrame ? { width: extFrame.w, height: extFrame.h, maxWidth: "calc(100% - 32px)" } : undefined}
+          data-pz={extFrame ? "ext-frame" : undefined}
         >
           <iframe
             ref={host}
@@ -173,10 +193,16 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
             className={cn(
               "block h-full w-full border-0 bg-white",
               dev && "rounded-[22px] shadow-[0_0_0_10px_var(--md-surface-container-highest),0_0_0_11px_var(--md-outline-variant),0_30px_80px_-20px_rgba(0,0,0,.6)]",
+              extFrame && "rounded-lg shadow-[0_0_0_1px_var(--md-outline-variant),0_18px_50px_-12px_rgba(0,0,0,.55)]",
               p.dragging && "pointer-events-none"
             )}
           />
         </div>
+        {extFrame && (
+          <div className="pointer-events-none absolute bottom-2 left-0 right-0 text-center font-code text-[10.5px] text-md-outline">
+            {extFrame.label} · {Math.round(extFrame.w)} × {Math.round(extFrame.h)}
+          </div>
+        )}
         {dev && (
           <div className="pointer-events-none absolute bottom-2 left-0 right-0 text-center font-code text-[10.5px] text-md-outline">
             {DEVICES[p.device as "tablet"].label} · {dw} × {dh}

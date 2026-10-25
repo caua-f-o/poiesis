@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2026 Cauã F. O.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { zipSync } from "fflate";
 import type { Device, Layout, LogEntry, Panel, PFile, Project, Settings, Workspace } from "@/lib/types";
 import { parsePreviewMessage, SESSION } from "@/lib/bridge";
 import { loadWorkspace, newProject, saveWorkspace, isExtension, openPopout, pushPopout, freshWorkspace } from "@/lib/store";
-import { buildPage } from "@/lib/build";
+import { buildPage, type ExtPreview } from "@/lib/build";
 import {
   baseName,
   collectDrop,
@@ -47,6 +47,14 @@ import { InspectorPanel, emptyInspector, type InspectorState } from "@/component
 import { pathToSource, ruleInCss, sourceToPath, type MatchedRule, type NodeInfo, type PathStep } from "@/lib/inspect";
 import { MOCKS_FILE, NET_LIMITS, parseMocks, stringifyMocks, toHar, type MockRule, type MocksConfig, type NetEntry } from "@/lib/net";
 import { StatusBar } from "@/components/StatusBar";
+import { ExtensionPanel } from "@/components/ExtensionPanel";
+import { ManifestForm } from "@/components/ManifestForm";
+import { ExportExtensionDialog, IconsDialog, NewExtensionDialog } from "@/components/ExtensionDialogs";
+import { MANIFEST, editManifest, isExtensionProject, jsonRange, pageRole, parseManifest, setAt, type JPath } from "@/lib/ext/manifest";
+import { applyFix, validateExtension, type ExtFix, type ExtProblem } from "@/lib/ext/validate";
+import { extensionZipFiles } from "@/lib/ext/map";
+import { extensionProject, type ExtOptions } from "@/lib/ext/templates";
+import { API_PERMISSION } from "@/lib/ext/permissions";
 import { AssetView } from "@/components/AssetView";
 import { MarkdownView, isMarkdown } from "@/components/MarkdownView";
 import { SymbolPicker, type SymbolPick } from "@/components/SymbolPicker";
@@ -72,6 +80,27 @@ function activeMocks(p: Project): MockRule[] {
   if (!f) return [];
   const { config } = parseMocks(f.content);
   return config.enabled ? config.mocks.filter((m) => m.enabled) : [];
+}
+
+type ExtStore = { local?: Record<string, unknown>; sync?: Record<string, unknown> };
+
+/** Opções do preview para projetos de extensão (APIs chrome.* simuladas). */
+function extPreview(p: Project, pageId: string | null, device: Device, storage: ExtStore | undefined): ExtPreview | undefined {
+  if (!isExtensionProject(p.files)) return undefined;
+  const mf = p.files.find((f) => f.name === MANIFEST)!;
+  const m = parseManifest(mf.content).data ?? {};
+  const page = p.files.find((f) => f.id === pageId && f.kind === "html") ?? p.files.find((f) => f.id === p.entry && f.kind === "html") ?? p.files.find((f) => f.kind === "html");
+  const role = page ? pageRole(m, page.name) : null;
+  let messages: Record<string, unknown> = {};
+  if (typeof m.default_locale === "string") {
+    const lf = p.files.find((f) => f.name === `_locales/${m.default_locale}/messages.json`);
+    try {
+      if (lf) messages = JSON.parse(lf.content);
+    } catch {
+      /* JSON inválido: o validador avisa */
+    }
+  }
+  return { manifest: m, view: role === "popup" && device !== "full" ? null : role, storage: storage ?? {}, messages, apiPerms: API_PERMISSION };
 }
 
 const STARTERS: Record<string, string> = {
@@ -143,6 +172,24 @@ export default function App() {
   const [netLogs, setNetLogs] = useState<Record<string, NetEntry[]>>({});
   const [reqDialog, setReqDialog] = useState<{ open: boolean; prefill?: NetRequest }>({ open: false });
   const [mocksOpen, setMocksOpen] = useState(false);
+  /* Extension Studio */
+  const [extNew, setExtNew] = useState(false);
+  const [iconsOpen, setIconsOpen] = useState(false);
+  const [extExport, setExtExport] = useState(false);
+  const [manifestMode, setManifestMode] = useState<"form" | "json">(() => (localStorage.getItem("poiesis:manifest-mode") === "json" ? "json" : "form"));
+  const [extSize, setExtSize] = useState<{ w: number; h: number } | null>(null);
+  /** chrome.storage simulado do preview, por projeto */
+  const extStorage = useRef<Record<string, ExtStore>>(
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem("poiesis:ext-storage") || "{}");
+      } catch {
+        return {};
+      }
+    })()
+  );
+  const saveExtSoon = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastExtCp = useRef(0);
   const [insp, setInsp] = useState<InspectorState>(emptyInspector);
   /** caminho do elemento selecionado, para reselecionar depois que o preview recarrega */
   const inspPath = useRef<PathStep[] | null>(null);
@@ -365,7 +412,9 @@ export default function App() {
     const w = wsRef.current;
     if (!w) return;
     const p = w.projects[w.currentId];
-    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject, storage: previewStorage.current[p.id], session: SESSION, mocks: activeMocks(p) });
+    const ext = extPreview(p, previewPageRef.current, w.settings.device, extStorage.current[p.id]);
+    // numa extensão cada página carrega os próprios scripts: injetar os "soltos" misturaria popup, opções e service worker
+    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject && !ext, storage: previewStorage.current[p.id], session: SESSION, mocks: activeMocks(p), ext });
     if (w.settings.clearOnRun) setLogs([]);
     if (!uiRef.current.netPreserve) setNetLogs((m) => (m[p.id]?.length ? { ...m, [p.id]: [] } : m));
     setErrorLine(null);
@@ -382,7 +431,7 @@ export default function App() {
     const t = setTimeout(() => runNow(), built.html ? settings.delay : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filesSig, previewPage, settings?.autoInject, settings?.autoRun, ws?.currentId]);
+  }, [filesSig, previewPage, settings?.autoInject, settings?.autoRun, settings?.device, ws?.currentId]);
 
   useEffect(() => {
     if (popout && built.html) pushPopout(built.html, built.page?.name ?? "preview");
@@ -476,6 +525,22 @@ export default function App() {
           }
           setBusy(false);
           setLoadMs(d.ms ?? null);
+          break;
+        case "ext-storage": {
+          if (!p) break;
+          extStorage.current[p.id] = { ...(extStorage.current[p.id] ?? {}), [d.area]: d.data };
+          if (saveExtSoon.current) clearTimeout(saveExtSoon.current);
+          saveExtSoon.current = setTimeout(() => {
+            try {
+              localStorage.setItem("poiesis:ext-storage", JSON.stringify(extStorage.current));
+            } catch {
+              /* cheio: fica só na memória */
+            }
+          }, 400);
+          break;
+        }
+        case "ext-size":
+          setExtSize({ w: d.w, h: d.h });
           break;
         case "navigate": {
           if (!p || !d.path) break;
@@ -867,6 +932,168 @@ export default function App() {
   const netEntries = project ? (netLogs[project.id] ?? []) : [];
   const mocksSrc = project?.files.find((f) => f.name === MOCKS_FILE)?.content;
   const mocksParsed = useMemo(() => (mocksSrc != null ? parseMocks(mocksSrc) : null), [mocksSrc]);
+
+  /* ---------------- Extension Studio ---------------- */
+  const isExt = !!project && isExtensionProject(project.files);
+  const extFiles = useDeferredValue(project?.files);
+  const extReport = useMemo(() => (extFiles && isExtensionProject(extFiles) ? validateExtension(extFiles) : null), [extFiles]);
+  useEffect(() => setExtSize(null), [built.page?.id]);
+
+  /** cria ou troca vários arquivos de uma vez (texto ou data URL de imagem) */
+  const writeFiles = (changes: Record<string, string>) =>
+    updateProject((p) => {
+      let files = p.files;
+      for (const [name, content] of Object.entries(changes)) {
+        const kind = kindOf(name);
+        const ex = files.find((f) => f.name === name);
+        if (ex) files = files.map((f) => (f.id === ex.id ? { ...f, content } : f));
+        else files = [...files, { id: uid(), name, kind, content, mime: mimeOf(name) }];
+      }
+      return { ...p, files };
+    });
+
+  const showExtPanel = () => updateSettings({ sidebar: true, panel: "extension" });
+
+  const applyExtFix = (fix: ExtFix) => {
+    if (!project) return;
+    const ch = applyFix(project.files, fix);
+    if (!ch) return void toast.error("Não foi possível aplicar a correção", { description: "O arquivo mudou ou o manifesto tem JSON inválido." });
+    checkpoint("pre-ext", project, { label: `Antes de: ${fix.label}` });
+    const snapshot = project;
+    writeFiles(ch);
+    toast.success(fix.label, { action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) } });
+    if (fix.kind === "create") setTimeout(() => {
+      const f = wsRef.current?.projects[wsRef.current.currentId].files.find((x) => x.name === fix.file);
+      if (f && f.kind !== "asset") openFile(f.id);
+    }, 60);
+  };
+
+  /** o formulário grava a cada mudança; uma versão no histórico a cada minuto, no máximo */
+  const onManifestForm = (next: string) => {
+    const mf = project?.files.find((f) => f.name === MANIFEST);
+    if (!mf || !project) return;
+    if (Date.now() - lastExtCp.current > 60000) {
+      lastExtCp.current = Date.now();
+      checkpoint("pre-ext", project, { label: "Antes de editar o manifesto" });
+    }
+    onChange(mf.id, next);
+  };
+
+  const setMMode = (mode: "form" | "json") => {
+    setManifestMode(mode);
+    localStorage.setItem("poiesis:manifest-mode", mode);
+  };
+
+  const openExtFile = (name: string, from?: number) => {
+    const f = project?.files.find((x) => x.name === name);
+    if (!f) return void toast.warning(`"${name}" não existe no projeto`);
+    if (f.kind === "asset") return openFile(f.id);
+    if (from != null) {
+      if (name === MANIFEST) setMMode("json");
+      const { line, col } = offsetToLineCol(f.content, from);
+      jumpTo(f.id, line, col);
+    } else openFile(f.id);
+  };
+
+  const openManifestAt = (path?: JPath) => {
+    const mf = project?.files.find((f) => f.name === MANIFEST);
+    if (!mf) return;
+    setMMode("json");
+    if (!path) return openFile(mf.id);
+    const { line, col } = offsetToLineCol(mf.content, jsonRange(mf.content, path, true).from);
+    jumpTo(mf.id, line, col);
+  };
+
+  const openManifestForm = () => {
+    const mf = project?.files.find((f) => f.name === MANIFEST);
+    if (!mf) return;
+    setMMode("form");
+    openFile(mf.id);
+  };
+
+  const previewExtPage = (path: string) => {
+    const f = project?.files.find((x) => x.name === path && x.kind === "html");
+    if (!f) return;
+    setPreviewPage(f.id);
+    if (settings?.layout === "editor") updateSettings({ layout: "split" });
+    if (settings?.device !== "full") updateSettings({ device: "full" });
+  };
+
+  const createExtension = async (o: ExtOptions) => {
+    try {
+      const p = await extensionProject(o);
+      setWs((w) => (w ? { ...w, projects: { ...w.projects, [p.id]: p }, order: [p.id, ...w.order], currentId: p.id } : w));
+      checkpoint("import", p, { label: "Nova extensão" });
+      setPreviewPage(p.entry || null);
+      setLogs([]);
+      setExtNew(false);
+      setMMode("form");
+      showExtPanel();
+      toast.success(`Extensão "${p.name}" criada`, { description: "O preview simula as APIs chrome.*. Para testar de verdade, exporte e carregue em chrome://extensions." });
+    } catch (e) {
+      toast.error("Não foi possível criar a extensão", { description: (e as Error).message });
+    }
+  };
+
+  const convertToExtension = () => {
+    if (!project) return;
+    if (project.files.some((f) => f.name === MANIFEST)) return void toast.error("Já existe um manifest.json na raiz", { description: "Adicione \"manifest_version\": 3 nele para o Poiesis tratá-lo como extensão." });
+    const entry = project.files.find((f) => f.id === project.entry && f.kind === "html");
+    const m: Record<string, unknown> = {
+      manifest_version: 3,
+      name: project.name.slice(0, 75),
+      version: "1.0.0",
+      description: "",
+      action: entry ? { default_popup: entry.name } : {},
+    };
+    checkpoint("pre-ext", project, { label: "Antes de virar extensão" });
+    writeFiles({ [MANIFEST]: JSON.stringify(m, null, 2) + "\n" });
+    setMMode("form");
+    setTimeout(() => {
+      const f = wsRef.current?.projects[wsRef.current.currentId].files.find((x) => x.name === MANIFEST);
+      if (f) openFile(f.id);
+    }, 60);
+    toast.success("manifest.json criado", { description: entry ? `${entry.name} virou o popup. Revise os problemas no painel Extensão.` : "Revise os problemas no painel Extensão." });
+  };
+
+  const applyIcons = (icons: Record<number, string>) => {
+    if (!project) return;
+    const mf = project.files.find((f) => f.name === MANIFEST);
+    const changes: Record<string, string> = {};
+    for (const [s, url] of Object.entries(icons)) changes[`icons/icon-${s}.png`] = url;
+    if (mf) {
+      const next = editManifest(mf.content, (m) => {
+        m.icons = Object.fromEntries(Object.keys(icons).map((s) => [s, `icons/icon-${s}.png`]));
+        if (m.action && typeof m.action === "object") setAt(m, ["action", "default_icon"], { "16": "icons/icon-16.png", "32": "icons/icon-32.png" });
+      });
+      if (next == null) return void toast.error("Corrija o JSON do manifesto antes de gerar os ícones");
+      changes[MANIFEST] = next;
+    }
+    checkpoint("pre-ext", project, { label: "Antes de gerar ícones" });
+    const snapshot = project;
+    writeFiles(changes);
+    setIconsOpen(false);
+    toast.success("Ícones gerados", { description: "icons/icon-16, 32, 48 e 128.png, ligados no manifesto.", action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) } });
+  };
+
+  const exportExtension = (force = false) => {
+    if (!project) return;
+    const rep = validateExtension(project.files);
+    if (!force && rep.problems.some((p) => p.sev === "error")) return void setExtExport(true);
+    const { include, excluded } = extensionZipFiles(project, rep.manifest ?? {});
+    const enc = new TextEncoder();
+    const entries: Record<string, Uint8Array> = {};
+    for (const f of include) entries[f.name] = f.kind === "asset" ? dataURLToBytes(f.content) : enc.encode(f.content);
+    const zipped = zipSync(entries, { level: 6 });
+    const version = typeof rep.manifest?.version === "string" ? "-" + rep.manifest.version.replace(/[^\w.]+/g, "") : "";
+    const name = `${slug(project.name)}${version}.zip`;
+    download(name, new Blob([zipped as BlobPart], { type: "application/zip" }));
+    setExtExport(false);
+    toast.success("Extensão exportada", {
+      description: `${name}: descompacte e, em chrome://extensions (modo do desenvolvedor), use "Carregar sem compactação".${excluded.length ? ` Ficaram fora: ${excluded.join(", ")}.` : ""}`,
+      duration: 9000,
+    });
+  };
 
   /** cria ou troca o conteúdo de um arquivo de texto do projeto */
   const upsertFile = (name: string, content: string) =>
@@ -1312,6 +1539,15 @@ export default function App() {
         { id: "insp-show", group: "Inspetor", label: "Mostrar elementos", icon: "account_tree", run: showElements },
         { id: "net-req", group: "Rede", label: "Nova requisição (console de APIs)", icon: "send", run: () => setReqDialog({ open: true }) },
         { id: "net-mocks", group: "Rede", label: "Editar mocks", icon: "dns", run: () => setMocksOpen(true) },
+        { id: "ext-new", group: "Extensão", label: "Nova extensão…", icon: "extension", run: () => setExtNew(true) },
+        { id: "ext-panel", group: "Extensão", label: "Mostrar painel Extensão", icon: "extension", run: showExtPanel },
+        ...(isExt
+          ? [
+              { id: "ext-export", group: "Extensão", label: "Exportar extensão (.zip)", icon: "folder_zip", run: () => exportExtension() },
+              { id: "ext-form", group: "Extensão", label: "Editar manifesto (formulário)", icon: "tune", run: openManifestForm },
+              { id: "ext-icons", group: "Extensão", label: "Gerar ícones…", icon: "image", run: () => setIconsOpen(true) },
+            ]
+          : [{ id: "ext-convert", group: "Extensão", label: "Transformar este projeto em extensão", icon: "transform", run: convertToExtension }]),
         ...(folder.enabled
           ? [
               { id: "fold-open", group: "Pasta no computador", label: "Abrir pasta do computador…", icon: "folder_open", run: openLocalFolder },
@@ -1359,11 +1595,13 @@ export default function App() {
         {
           id: "clear-storage",
           group: "Console",
-          label: "Limpar localStorage do preview",
+          label: "Limpar localStorage do preview (e chrome.storage simulado)",
           icon: "delete_sweep",
           run: () => {
             delete previewStorage.current[project!.id];
+            delete extStorage.current[project!.id];
             localStorage.setItem("poiesis:preview-storage", JSON.stringify(previewStorage.current));
+            localStorage.setItem("poiesis:ext-storage", JSON.stringify(extStorage.current));
             runNow(true);
             toast("localStorage do preview limpo");
           },
@@ -1384,6 +1622,8 @@ export default function App() {
   }
 
   const htmlPages = project.files.filter((f) => f.kind === "html");
+  const showManifestForm = isExt && activeFile?.name === MANIFEST && manifestMode === "form";
+  const extRole = isExt && built.page && extReport?.manifest ? pageRole(extReport.manifest, built.page.name) : null;
   const showEditor = settings.layout !== "preview";
   const showPreview = settings.layout !== "editor";
   const dir = settings.layout === "stack" ? "col" : "row";
@@ -1436,6 +1676,7 @@ export default function App() {
         onSearch={() => editor.current?.search()}
         onWrap={() => updateSettings({ wrap: !settings.wrap })}
         onIcon={() => openSymbols()}
+        manifest={isExt && activeFile?.name === MANIFEST ? { mode: manifestMode, onMode: setMMode } : undefined}
         md={
           isMarkdown(activeFile)
             ? {
@@ -1450,7 +1691,7 @@ export default function App() {
       />
       <div className="relative min-h-0 flex-1">
         <div className={activeFile && activeFile.kind !== "asset" ? "flex h-full" : "hidden"}>
-         <div className={isMarkdown(activeFile) && mdMode === "view" ? "hidden" : "h-full min-w-0 flex-1"}>
+         <div className={(isMarkdown(activeFile) && mdMode === "view") || showManifestForm ? "hidden" : "h-full min-w-0 flex-1"}>
           <EditorContextMenu
             editor={editor}
             canFormat={!!activeFile && canFormat(activeFile.kind, activeFile.name)}
@@ -1481,6 +1722,20 @@ export default function App() {
             />
           </EditorContextMenu>
          </div>
+         {showManifestForm && (
+           <div className="h-full min-w-0 flex-1" style={{ background: "var(--md-surface-container-lowest)" }}>
+             <ManifestForm
+               src={activeFile!.content}
+               files={project.files}
+               problems={extReport?.problems ?? []}
+               onChange={onManifestForm}
+               onJson={openManifestAt}
+               onIcons={() => setIconsOpen(true)}
+               onFix={applyExtFix}
+               onCreateFile={(n) => applyExtFix({ label: `Criar ${n}`, kind: "create", file: n, content: `// ${n}\n` })}
+             />
+           </div>
+         )}
          {isMarkdown(activeFile) && mdMode !== "code" && (
            <div className={mdMode === "view" ? "h-full min-w-0 flex-1" : "h-full min-w-0 flex-1 border-l border-md-outline-v"} style={{ background: "var(--md-surface-container-lowest)" }}>
              <MarkdownView file={activeFile!} files={project.files} onOpenFile={openFile} />
@@ -1555,6 +1810,7 @@ export default function App() {
             onToggleConsole={() => updateSettings({ console: !settings.console })}
             picking={insp.picking}
             onPick={startPick}
+            ext={isExt ? { role: extRole, size: extSize } : undefined}
             onExportHtml={exportHtml}
           />
         </div>
@@ -1699,6 +1955,21 @@ export default function App() {
                     onImport={() => historyInput.current?.click()}
                     onCleanOrphans={() => deleteOrphans(ws.order).then(() => setHistoryTick((t) => t + 1))}
                     onChanged={() => setHistoryTick((t) => t + 1)}
+                  />
+                )}
+                {settings.panel === "extension" && (
+                  <ExtensionPanel
+                    project={project}
+                    isExt={isExt}
+                    report={extReport}
+                    onNew={() => setExtNew(true)}
+                    onConvert={convertToExtension}
+                    onOpen={openExtFile}
+                    onPreview={previewExtPage}
+                    onExport={() => exportExtension()}
+                    onIcons={() => setIconsOpen(true)}
+                    onForm={openManifestForm}
+                    onFix={applyExtFix}
                   />
                 )}
                 {settings.panel === "themes" && <ThemesPanel current={settings.theme} onPick={(id) => updateSettings({ theme: id })} />}
@@ -1847,6 +2118,20 @@ export default function App() {
           onOpenChange={setMocksOpen}
           onSave={saveMocks}
           onOpenFile={openMocksFile}
+        />
+        <NewExtensionDialog open={extNew} onOpenChange={setExtNew} onCreate={createExtension} />
+        <IconsDialog open={iconsOpen} onOpenChange={setIconsOpen} images={project.files.filter((f) => (f.kind === "asset" && /^image\//.test(f.mime ?? "")) || /\.svg$/i.test(f.name))} onApply={applyIcons} />
+        <ExportExtensionDialog
+          open={extExport}
+          onOpenChange={setExtExport}
+          problems={extReport?.problems ?? []}
+          count={extReport ? extensionZipFiles(project, extReport.manifest ?? {}).include.length : 0}
+          excluded={extReport && extExport ? extensionZipFiles(project, extReport.manifest ?? {}).excluded : []}
+          onExport={() => exportExtension(true)}
+          onOpenProblem={(p: ExtProblem) => {
+            setExtExport(false);
+            openExtFile(p.file, p.from);
+          }}
         />
         <CompareDialog
           open={!!compareRev}

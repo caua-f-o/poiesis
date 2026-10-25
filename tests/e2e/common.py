@@ -7,6 +7,7 @@ from playwright.sync_api import sync_playwright
 EXT = os.environ.get("POIESIS_DIST", os.path.join(os.path.dirname(__file__), "..", "..", "dist"))
 V = "document.querySelector('.cm-content').cmTile.root.view"
 results = {}
+PW = None  # instância do Playwright (para abrir outros navegadores no mesmo teste)
 
 def check(name, cond, extra=""):
     results[name] = bool(cond)
@@ -15,7 +16,9 @@ def check(name, cond, extra=""):
 def launch(profile, viewport=(1440, 900)):
     prof = os.path.join(os.environ.get("POIESIS_PROFILES", "/tmp/poiesis-e2e"), profile)
     shutil.rmtree(prof, ignore_errors=True)
+    global PW
     p = sync_playwright().start()
+    PW = p
     ext_path = os.path.abspath(EXT)
     ctx = p.chromium.launch_persistent_context(prof, channel="chromium", headless=True, args=[f"--disable-extensions-except={ext_path}", f"--load-extension={ext_path}"], viewport={"width": viewport[0], "height": viewport[1]}, accept_downloads=True)
     sw = ctx.service_workers[0] if ctx.service_workers else ctx.wait_for_event("serviceworker", timeout=15000)

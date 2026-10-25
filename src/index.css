@@ -363,6 +363,14 @@
   .md-field::placeholder {
     color: var(--md-outline);
   }
+  select.md-field {
+    background-color: var(--md-surface-container-low);
+    text-overflow: ellipsis;
+  }
+  select.md-field option {
+    background: var(--md-surface-container);
+    color: var(--md-on-surface);
+  }
 
   .md-search {
     @apply flex h-9 items-center gap-2 rounded-full pl-3 pr-1.5;
@@ -786,4 +794,10 @@
 @layer utilities {
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+/* descrição dos toasts: mesma cor do título (fundo invertido), um pouco mais suave */
+[data-sonner-toast] [data-description] {
+  color: var(--md-inverse-on-surface) !important;
+  opacity: 0.82;
 }

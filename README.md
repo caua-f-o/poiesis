@@ -54,6 +54,14 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - Force `:hover`, `:focus` e outros estados, e teste mudanças temporárias: nada vai para o arquivo até você copiar o CSS gerado.
 - "Ver no código" leva à tag no HTML ou à regra no CSS; no editor HTML, `Ctrl+Shift+C` seleciona no preview o elemento sob o cursor.
 
+**Extension Studio** (painel "Extensão"):
+- Crie extensões para Chrome e Edge (Manifest V3) a partir de modelos: popup, opções, painel lateral, content script, service worker e o par principal/complementar.
+- Edite o `manifest.json` num formulário ou no JSON, sincronizados, sem perder campos que o formulário não conhece.
+- Validação antes de exportar: arquivos que faltam, chaves do MV2, CSP do MV3 (scripts inline, `onclick`), APIs `chrome.*` sem a permissão. Muitas têm correção de um clique.
+- Cada permissão explicada, com o risco e o aviso que aparece na instalação. Gerador de ícones PNG.
+- Preview do popup, das opções e do painel lateral com as APIs `chrome.*` **simuladas** (e marcadas como simulação). Service worker e content scripts só rodam com a extensão instalada.
+- Exporta um ZIP pronto para "Carregar sem compactação" em `chrome://extensions`.
+
 **Pasta no computador** (opcional; ligue em Preferências):
 - Abra uma pasta real do computador ou vincule um projeto a uma pasta. As edições são gravadas direto nos arquivos, só os que mudaram.
 - Criar, renomear e excluir no explorador também valem na pasta. `node_modules`, `.git`, `dist`, o `.gitignore` e o que você configurar ficam de fora.
@@ -94,7 +102,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 
 ## Roadmap
 
-Próximos passos (Extension Studio, integração entre os módulos, os mascotes Lúmen e Pólen e a música de foco) em [`ROADMAP.md`](ROADMAP.md).
+Próximos passos (integração entre os módulos, os mascotes Lúmen e Pólen e a música de foco) em [`ROADMAP.md`](ROADMAP.md).
 
 ## Privacidade
 

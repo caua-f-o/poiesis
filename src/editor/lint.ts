@@ -12,6 +12,8 @@ import { CSS_PROPS, HTML_ATTRS, HTML_TAGS, loadMdn, mdnNow } from "@/lib/docs";
 import { getIndex } from "@/lib/indexer";
 import { dirName, resolvePath } from "@/lib/files";
 import type { PFile } from "@/lib/types";
+import { MANIFEST, isExtensionProject } from "@/lib/ext/manifest";
+import { applyFix, validateExtension } from "@/lib/ext/validate";
 
 /* ---------------- distância de edição ---------------- */
 
@@ -622,6 +624,37 @@ function lintJson(state: EditorState): Diagnostic[] {
   }
 }
 
+/* ---------------- extensão (manifest.json e páginas da extensão) ---------------- */
+
+function extDiagnostics(state: EditorState): Diagnostic[] {
+  const f = currentFile;
+  if (!f) return [];
+  const files = getIndex().files;
+  const text = state.doc.toString();
+  const live = files.some((x) => x.name === f.name) ? files.map((x) => (x.name === f.name ? { ...x, content: text } : x)) : [...files, { ...f, content: text }];
+  if (!isExtensionProject(live)) return [];
+  const rep = validateExtension(live);
+  if (rep.parseError) return [];
+  const len = state.doc.length;
+  const out: Diagnostic[] = [];
+  for (const p of rep.problems) {
+    if (p.file !== f.name || (p.from === 0 && p.to === 0 && f.name !== MANIFEST)) continue;
+    const from = Math.min(p.from, len);
+    const to = Math.max(from, Math.min(p.to, len));
+    const actions: Action[] = [];
+    if (p.fix) {
+      const ch = applyFix(live, p.fix);
+      const keys = ch ? Object.keys(ch) : [];
+      if (ch && keys.length === 1 && keys[0] === f.name) {
+        const next = ch[f.name];
+        actions.push({ name: p.fix.label, apply: (v) => v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: next } }) });
+      }
+    }
+    out.push({ from, to, severity: p.sev, source: "Extensão (MV3)", message: p.msg, actions });
+  }
+  return out;
+}
+
 /* ---------------- integração ---------------- */
 
 /** Pede uma nova verificação (o índice do projeto mudou, ou um erro de execução chegou). */
@@ -633,11 +666,11 @@ export function lintExtension(kind: () => string, extra: (state: EditorState) =>
     async (view) => {
       const k = kind();
       const more = extra(view.state);
-      if (k === "json") return [...lintJson(view.state), ...more];
+      if (k === "json") return [...lintJson(view.state), ...extDiagnostics(view.state), ...more];
       if (k !== "html" && k !== "css" && k !== "js") return more;
       if (!mdnNow()) await loadMdn();
       try {
-        return [...lintMarkup(view.state), ...more];
+        return [...lintMarkup(view.state), ...(k === "html" || k === "js" ? extDiagnostics(view.state) : []), ...more];
       } catch (e) {
         console.warn("[poiesis] lint", e);
         return more;

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Poiesis",
   "short_name": "Poiesis",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "Do código à forma: editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, correções, console e projetos.",
   "icons": {
     "16": "icons/icon-16.png",

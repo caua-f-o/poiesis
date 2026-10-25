@@ -18,6 +18,7 @@ O Poiesis executa código escrito pelo usuário e, às vezes, código de terceir
   - iframes de terceiros dentro da página do usuário não conseguem enviá-los.
 - **Exibição:** conteúdo vindo da página (logs, respostas de rede, Markdown) é exibido como texto ou passa pelo DOMPurify. Não há `innerHTML` com dados não confiáveis.
 - **Inspetor:** a seleção só escuta eventos da página enquanto está ativa; o contorno fica num shadow root fechado com HTML fixo; nomes de propriedade editados passam por filtro e os valores vão por `style.setProperty`. As edições são temporárias e nunca tocam nos arquivos.
+- **Extension Studio:** as APIs `chrome.*` do preview são uma simulação em JavaScript comum, dentro da página isolada, sem nenhum privilégio. As mensagens dela (armazenamento simulado e tamanho do popup) passam pela mesma validação. O ZIP exportado nunca leva o runtime do Poiesis nem nomes de arquivo que escapariam da pasta ao descompactar. O modelo de extensão principal confere o remetente (`externally_connectable` + checagem no service worker).
 - **Montagem do preview:** nomes de arquivo e conteúdo do usuário entram de forma literal (sem padrões `$&`), com aspas, `-->` e `</style` escapados.
 - **Dados sensíveis:**
   - o registro de rede fica só na memória;
@@ -28,4 +29,4 @@ O Poiesis executa código escrito pelo usuário e, às vezes, código de terceir
 
 ## Testes
 
-`pnpm build && pnpm test:e2e` inclui testes de segurança: mensagens forjadas, iframe de terceiro tentando executar código ou disparar requisições, resposta HTML maliciosa, URLs perigosas no console de APIs, mascaramento no HAR, inundação de mensagens, padrões `$&` no conteúdo, atributos maliciosos no inspetor e iframe de terceiro tentando ligar a seleção.
+`pnpm build && pnpm test:e2e` inclui testes de segurança: mensagens forjadas, iframe de terceiro tentando executar código ou disparar requisições, resposta HTML maliciosa, URLs perigosas no console de APIs, mascaramento no HAR, inundação de mensagens, padrões `$&` no conteúdo, atributos maliciosos no inspetor, iframe de terceiro tentando ligar a seleção e mensagens forjadas do Extension Studio. A suíte `extensao` também carrega o ZIP exportado num Chromium real e confere que uma extensão não autorizada não consegue falar com a principal.

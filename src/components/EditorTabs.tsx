@@ -21,6 +21,8 @@ interface Props {
   onIcon(): void;
   /** controles de visualização quando o arquivo ativo é Markdown */
   md?: { mode: "code" | "split" | "view"; onMode(m: "code" | "split" | "view"): void };
+  /** manifest.json de extensão: formulário ou JSON */
+  manifest?: { mode: "form" | "json"; onMode(m: "form" | "json"): void };
 }
 
 /** Abas no estilo "primary tabs" do Material 3: indicador arredondado sob o rótulo ativo. */
@@ -101,6 +103,20 @@ export function EditorTabs(p: Props) {
                   <Icon name={icon} size={16} />
                 </button>
               </Tip>
+            ))}
+          </div>
+        )}
+        {p.manifest && (
+          <div className="md-seg mr-1 h-7" role="tablist" aria-label="Modo do manifesto">
+            {(
+              [
+                ["form", "tune", "Formulário"],
+                ["json", "data_object", "JSON"],
+              ] as const
+            ).map(([m, icon, label]) => (
+              <button key={m} role="tab" aria-selected={p.manifest!.mode === m} data-on={p.manifest!.mode === m} onClick={() => p.manifest!.onMode(m)} className="!px-2.5 text-[12px]">
+                <Icon name={icon} size={15} /> {label}
+              </button>
             ))}
           </div>
         )}

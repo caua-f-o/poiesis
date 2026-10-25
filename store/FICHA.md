@@ -46,6 +46,11 @@ REDE E APIs
 • Mocks com latência e falhas simuladas — funcionam sem internet
 • Console de APIs para testar endpoints; tokens e cookies mascarados por padrão
 
+EXTENSION STUDIO
+• Crie extensões para Chrome (Manifest V3) a partir de modelos: popup, opções, painel lateral, content script e service worker
+• Manifesto em formulário ou JSON, permissões explicadas e validação antes de exportar, com correções de um clique
+• Preview do popup com as APIs chrome.* simuladas e ZIP pronto para "Carregar sem compactação"
+
 INSPETOR DE ELEMENTOS
 • Clique num elemento do preview e veja as regras CSS que se aplicam, os valores finais e o box model
 • Force :hover e :focus e teste mudanças temporárias; copie o CSS resultante quando gostar
@@ -87,6 +92,7 @@ A complete web code editor in a Chrome tab: write HTML, CSS and JavaScript and s
 • Emmet, go to definition, project-wide rename, search and replace, Prettier formatting
 • 3,932 Material Symbols icons picker
 • Flicker-free live preview with phone/tablet modes, pop-out window and a real console with a REPL
+• Extension Studio: MV3 templates, manifest form synced with JSON, explained permissions, validation with quick fixes, simulated chrome.* preview and ZIP export
 • Element inspector: pick in the preview, matched CSS rules, computed values, box model, forced states and temporary edits
 • Network panel: fetch/XHR log with diagnostics, offline mocks and an API console (secrets masked)
 • Local version history: automatic snapshots, named restore points, side-by-side diff and restore (no Git, no cloud)
