@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Verificação ao vivo de HTML, CSS, JS e JSON com sugestões de correção.
  *  Tags, atributos, propriedades e valores escritos errado ganham sublinhado; ao clicar
  *  (ou Ctrl+.), um cartão mostra as correções possíveis. */

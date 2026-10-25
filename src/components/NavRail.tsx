@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import type { Panel } from "@/lib/types";
 import { Icon, Logo } from "./Icon";
 import { Tip } from "./md";

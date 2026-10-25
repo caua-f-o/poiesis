@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Cauã F. O.
 """Gera um subconjunto do Material Symbols Rounded só com os ícones usados no código."""
 import re, sys, pathlib
 from fontTools.ttLib import TTFont

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Busca de documentação (PT primeiro, MDN em inglês como reserva) e renderização em DOM puro,
  *  compartilhada pelo autocompletar, pelo hover e pelo cartão de definição. */
 import { CSS_AT, CSS_PROPS, CSS_PSEUDO, HTML_ATTRS, HTML_TAGS, JS_DOCS, TAG_CATEGORY_LABEL, loadMdn, mdnCss, mdnNow, mdnSearch, mdnTag } from "@/lib/docs";
@@ -139,7 +141,7 @@ export function renderDoc(info: DocInfo | null, opts: RenderOpts = {}) {
     root.append(box);
   }
   const foot = el("div", "pz-doc-foot");
-  if (info?.english) foot.append(el("span", "pz-doc-muted", "Descrição do MDN (inglês)"));
+  if (info?.english) foot.append(el("span", "pz-doc-muted", "Descrição: MDN Web Docs, Mozilla Contributors · CC BY-SA 2.5 (em inglês)"));
   if (opts.footer) foot.append(el("span", "pz-doc-muted", opts.footer));
   if (info?.link) {
     const a = el("a", "pz-doc-link", "Abrir no MDN");

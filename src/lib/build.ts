@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import runtimeSrc from "./runtime.js?raw";
 import type { PFile, Project } from "./types";
 import { dirName, findFile, resolvePath } from "./files";

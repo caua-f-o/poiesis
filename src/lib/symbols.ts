@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Material Symbols: busca (com sinônimos em português), estilos e código para inserir. */
 
 export type SymbolStyle = "outlined" | "rounded" | "sharp";

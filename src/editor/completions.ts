@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Autocompletar ampliado:
  *  - documentação em português nas sugestões nativas (tags, atributos, propriedades, APIs JS)
  *  - classes/ids do CSS dentro de class="" e id="" no HTML, e vice-versa nos seletores CSS

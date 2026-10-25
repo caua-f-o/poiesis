@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Cauã F. O.
 """Compacta os dados do MDN (via @vscode/web-custom-data) para o fallback em inglês das definições."""
 import json, re, pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent

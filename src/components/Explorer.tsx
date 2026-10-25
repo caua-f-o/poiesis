@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { useMemo, useState } from "react";
 import type { PFile } from "@/lib/types";
 import { Icon } from "./Icon";

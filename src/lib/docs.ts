@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Dicionário em português para definições e autocompletar.
  *  Formato: nome → [descrição, exemplo opcional]. O que não estiver aqui cai no MDN (inglês). */
 

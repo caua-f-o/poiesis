@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import type { Project } from "@/lib/types";
 import { TEMPLATES } from "@/lib/templates";
 import { THEMES, type Theme } from "@/lib/themes";

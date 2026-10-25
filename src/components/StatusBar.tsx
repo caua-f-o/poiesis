@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import type { PFile, Settings } from "@/lib/types";
 import type { CursorInfo } from "@/editor/CodeEditor";
 import { langLabel } from "@/lib/files";

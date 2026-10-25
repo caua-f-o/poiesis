@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Índice do projeto: o que cada arquivo define e usa (classes, ids, variáveis CSS, keyframes, funções).
  *  Alimenta o autocompletar cruzado HTML ↔ CSS ↔ JS, as definições e o "ir para definição". */
 import type { PFile } from "./types";

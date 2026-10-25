@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import type { FileKind, PFile } from "./types";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);

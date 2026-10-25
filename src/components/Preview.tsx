@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { Device, PFile } from "@/lib/types";
 import { Icon } from "./Icon";
@@ -9,6 +11,8 @@ export interface PreviewHandle {
   eval(code: string): void;
   reload(): void;
   highlight(selector: string): void;
+  /** janela do iframe sandbox — única origem aceita para mensagens do preview */
+  source(): Window | null;
 }
 
 const DEVICES: Record<Exclude<Device, "full">, { w: number; h: number; label: string }> = {
@@ -55,6 +59,7 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
     eval: (code) => send({ __poiesisHost: 1, type: "eval", code }),
     reload: () => send({ __poiesisHost: 1, type: "render", html: htmlRef.current, hard: true }),
     highlight: (selector) => send({ __poiesisHost: 1, type: "highlight", selector }),
+    source: () => host.current?.contentWindow ?? null,
   }));
 
   useLayoutEffect(() => {

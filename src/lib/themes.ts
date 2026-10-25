@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Temas: papéis de cor do Material 3 (interface) + paleta de sintaxe (editor). */
 
 export interface SyntaxPalette {

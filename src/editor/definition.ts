@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** Símbolo sob o cursor → definição (o que é / para que serve), referências no projeto e "ir para definição". */
 import { StateEffect, StateField, type EditorState } from "@codemirror/state";
 import { EditorView, hoverTooltip, showTooltip, keymap, type Tooltip } from "@codemirror/view";

@@ -311,6 +311,9 @@
 
   /* ---------------- REPL ---------------- */
   W.addEventListener("message", function (e) {
+    // comandos (REPL e destaque) só valem quando vêm do sandbox que hospeda a página;
+    // iframes de terceiros embutidos na página não podem executar código nela
+    if (e.source !== parentWin) return;
     var d = e.data;
     if (d && d.__poiesisHighlight != null) {
       var n = highlight(String(d.__poiesisHighlight));

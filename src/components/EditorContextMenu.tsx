@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { useState, type ReactNode } from "react";
 import type { EditorAction, EditorHandle, MenuContext } from "@/editor/CodeEditor";
 import type { Sym } from "@/editor/definition";

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /* Poiesis · palco isolado (página sandbox da extensão).
  * Recebe o HTML montado pelo editor e o renderiza num iframe interno.
  * Usa buffer duplo: o quadro novo carrega escondido e só então substitui o antigo,

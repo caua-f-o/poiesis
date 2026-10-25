@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { zipSync } from "fflate";
@@ -230,6 +232,9 @@ export default function App() {
     const onMsg = (e: MessageEvent) => {
       const d = e.data;
       if (!d || d.__poiesis !== 1) return;
+      // só aceita mensagens vindas do iframe sandbox do preview (que repassa as da página do usuário)
+      const src = preview.current?.source();
+      if (!src || e.source !== src) return;
       const w = wsRef.current;
       const p = w ? w.projects[w.currentId] : null;
       switch (d.type) {

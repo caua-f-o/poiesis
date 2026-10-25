@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { useEffect, useImperativeHandle, useRef, forwardRef } from "react";
 import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /* Janela de preview destacada: espelha o editor em tempo real via chrome.storage. */
 (function () {
   var KEY = "poiesis:popout";

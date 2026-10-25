@@ -74,3 +74,13 @@ pnpm build   # gera a extensão em dist/
 ```
 
 Stack: React 19, TypeScript, Vite, Tailwind, Radix/shadcn (reestilizado em Material 3), CodeMirror 6, Emmet, Prettier, fflate. Fontes locais: Roboto Flex, JetBrains Mono, Instrument Serif e Material Symbols Rounded. Descrições de reserva do MDN via `@vscode/web-custom-data` (`python3 design/build_mdn.py`).
+
+O build também gera `dist/LICENSE` e `dist/THIRD_PARTY_LICENSES.txt`, que traz a licença de cada pacote que entra na extensão.
+
+## Licença
+
+Copyright (C) 2026 Cauã F. O.
+
+O Poiesis é software livre, distribuído sob a **GNU General Public License v3, somente a versão 3** (`GPL-3.0-only`). Você pode usar, estudar, modificar e redistribuir o código. Quem distribuir uma versão modificada precisa publicar o código-fonte dela também sob a GPL-3.0. O texto completo está em [`LICENSE`](LICENSE).
+
+Os componentes de terceiros mantêm as próprias licenças. Destaque para as descrições do MDN em `src/lib/mdn-data.json`, que são CC BY-SA 2.5. Os detalhes estão em [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

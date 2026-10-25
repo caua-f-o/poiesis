@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { useMemo } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";

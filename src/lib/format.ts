@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import type { FileKind } from "./types";
 
 export async function formatCode(code: string, kind: FileKind, tabWidth: number, name = ""): Promise<string> {

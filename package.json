@@ -1,7 +1,10 @@
 {
   "name": "poiesis",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.2.1",
+  "description": "Editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, como extensão do Chrome.",
+  "license": "GPL-3.0-only",
+  "author": "Cauã F. O.",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { EditorView, Decoration, ViewPlugin, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { RangeSetBuilder } from "@codemirror/state";

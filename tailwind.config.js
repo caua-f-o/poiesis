@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],

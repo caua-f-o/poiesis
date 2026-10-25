@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/roboto-flex/wght.css";

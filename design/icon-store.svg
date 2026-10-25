@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#221f19"/>
+      <stop offset="1" stop-color="#0c0b09"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8873e"/>
+      <stop offset=".6" stop-color="#e2bb72"/>
+      <stop offset="1" stop-color="#f7e2b0"/>
+    </linearGradient>
+  </defs>
+  <!-- Web Store: arte 96x96 + 16 px de margem transparente -->
+  <g transform="translate(12.8 12.8) scale(.8)">
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#bg)"/>
+  <rect x="4.75" y="4.75" width="118.5" height="118.5" rx="29.25" fill="none" stroke="#e2bb72" stroke-opacity=".22" stroke-width="1.5"/>
+  <path d="M41 45 L23 64 L41 83" fill="none" stroke="#efe9dc" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M87 45 L105 64 L87 83" fill="none" stroke="#efe9dc" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M55 96 C 59 80, 64 66, 69 52" fill="none" stroke="url(#gold)" stroke-width="7.5" stroke-linecap="round"/>
+  <path d="M60.5 74 C 50 69, 47 60, 49 52 C 57 55, 62.5 63, 60.5 74 Z" fill="url(#gold)" opacity=".85"/>
+  <path d="M68 54 C 61 47, 63 35, 75 27 C 80 38, 78 49, 68 54 Z" fill="url(#gold)"/>
+  <path d="M90 20 L92 26 L98 28 L92 30 L90 36 L88 30 L82 28 L88 26 Z" fill="#f7e2b0"/>
+</g>
+</svg>

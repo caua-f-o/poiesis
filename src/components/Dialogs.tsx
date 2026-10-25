@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import { useEffect, useState } from "react";
 import type { PFile, Settings } from "@/lib/types";
 import { THEMES } from "@/lib/themes";

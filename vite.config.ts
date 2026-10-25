@@ -1,13 +1,16 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 import path from "path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { thirdPartyLicenses } from "./scripts/third-party-licenses.ts";
 
 export default defineConfig({
   base: "./",
-  plugins: [react()],
+  plugins: [react(), thirdPartyLicenses()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   build: {

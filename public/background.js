@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Cauã F. O.
 /* Poiesis · service worker
  * Clique no ícone (ou atalho) abre o editor; se já houver uma aba aberta, foca nela. */
 const EDITOR = chrome.runtime.getURL("index.html");
