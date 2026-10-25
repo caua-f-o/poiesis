@@ -22,8 +22,8 @@ export type CompanionEvent =
   | "focus:on"
   | "focus:off";
 
-/** idle e watch/observe/sleep são estados de base; os outros são reações curtas */
-export type Pose = "idle" | "watch" | "observe" | "sleep" | "curious" | "happy" | "doubt" | "pet";
+/** idle, rest (repouso: nível foco ou música tocando), watch, observe e sleep são estados de base; os outros são reações curtas */
+export type Pose = "idle" | "rest" | "watch" | "observe" | "sleep" | "curious" | "happy" | "doubt" | "pet";
 
 export const SLEEP_AFTER = 5 * 60_000;
 const TYPING_WINDOW = 3500;
@@ -67,10 +67,11 @@ export function useCompanion(level: CompanionLevel, enabled: boolean) {
     const s = r.current;
     const now = Date.now();
     if (now - s.lastAct > SLEEP_AFTER) return "sleep";
-    if (levelRef.current === "foco") return "idle";
+    if (levelRef.current === "foco") return "rest";
     if (s.debugging) return "observe";
     if (levelRef.current === "vivo" && now < s.typingUntil && !s.focus) return "watch";
-    return "idle";
+    // com a música de foco tocando, repousa de olhos fechados, curtindo
+    return s.focus ? "rest" : "idle";
   }, []);
 
   const refresh = useCallback(() => {
@@ -98,7 +99,7 @@ export function useCompanion(level: CompanionLevel, enabled: boolean) {
           s.lastAct = now;
           if (levelRef.current === "vivo") s.typingUntil = now + TYPING_WINDOW;
           // digitação agrupada: só re-renderiza se a pose de base mudar
-          if (wasAsleep || (levelRef.current === "vivo" && poseRef.current === "idle")) refresh();
+          if (wasAsleep || (levelRef.current === "vivo" && (poseRef.current === "idle" || poseRef.current === "rest"))) refresh();
           return;
         case "debug:start":
         case "debug:stop":

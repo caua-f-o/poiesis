@@ -246,8 +246,8 @@ A personalidade, os princípios e os estados estão em [`docs/personalidade-pole
 
 **O que existe** (`src/lib/companion.ts`, `src/components/Companion.tsx`, estilos em `src/index.css` → "companheiros"):
 
-- **Pólen** (semente creme e dourada, coroa de folhas, saltinhos) e **Lúmen** (espírito de luz marfim e âmbar, halo, flutuação). Arte em SVG por partes, separada da lógica: as poses trocam olhos e boca e o CSS anima grupos (folhas, halo, brilho). Para trocar pela arte definitiva, basta manter as classes.
-- **Máquina de estados compartilhada:** estados de base (repouso, acompanhando a digitação, observando no inspetor, dormindo depois de 5 min parado) e reações curtas (0,8–1,5 s): curiosidade (arquivo criado ou aberto, importação), comemoração (execução sem erros pedida por você, ou que resolveu erros; exportação), dúvida (erro no preview, **uma vez por ocorrência**), carinho (clique).
+- **Pólen** (bulbo creme com broto de folhas douradas e verdes, perninhas de raiz, saltinhos) e **Lúmen** (orbe de luz marfim e âmbar com chamas-folhas em redemoinho, halo inclinado, flutuação), redesenhados em SVG a partir das folhas de conceito em [`docs/arte/`](docs/arte/), com as paletas delas. Arte separada da lógica: as poses trocam olhos, boca, braços e os sinais dos conceitos (`</>` digitando, `…` pensando, `?` no erro, `z z z` dormindo), e o CSS anima grupos (folhas, chamas, halo, brilho).
+- **Máquina de estados compartilhada:** estados de base (tranquilo; repouso de olhos fechados no nível Foco ou com a música tocando; acompanhando a digitação; pensando no inspetor; dormindo depois de 5 min parado) e reações curtas (0,8–1,5 s): curiosidade (arquivo criado ou aberto, importação), comemoração (execução sem erros pedida por você, ou que resolveu erros; exportação), dúvida (erro no preview, **uma vez por ocorrência**), carinho (clique).
 - **Prioridade e limites:** foco e movimento reduzido acima de tudo; erros antes de ações; intervalo mínimo entre reações; digitação agrupada (não reage a cada tecla).
 - **Níveis:** Foco (parado, sem partículas), Discreto (padrão: respira e reage ao que importa) e Vivo (acompanha a digitação, folhas e chamas em movimento). Escolha entre Pólen, Lúmen ou nenhum.
 - **Posição:** barra lateral (padrão, no espaço livre; some se faltar altura) ou barra superior. Nunca na frente do código nem do preview, e só a área do companheiro recebe cliques; o teclado nunca é capturado.
@@ -256,7 +256,7 @@ A personalidade, os princípios e os estados estão em [`docs/personalidade-pole
 
 **Testes:** `tests/e2e/companheiros.py` (37 verificações, junto com a música).
 
-**Pendências:** arte definitiva desenhada pelo autor (a atual é um ponto de partida em SVG); som opcional (desligado por padrão, como pede o documento).
+**Pendências:** vistas lateral e traseira dos conceitos (para uma posição de "passeio"); som opcional (desligado por padrão, como pede o documento).
 
 ## Módulo 9 — Música de foco ✅ 2.10.0
 
