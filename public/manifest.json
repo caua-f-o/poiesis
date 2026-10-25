@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Poiesis",
   "short_name": "Poiesis",
-  "version": "2.2.1",
-  "description": "Do código à forma: editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, verificação com correções, console e projetos, no navegador.",
+  "version": "2.3.0",
+  "description": "Do código à forma: editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, correções, console e projetos.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -35,5 +35,6 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
     "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-pointer-lock allow-presentation; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: data: blob:; style-src 'self' 'unsafe-inline' https: http: data: blob:; img-src * data: blob:; font-src * data: blob:; media-src * data: blob:; connect-src * data: blob:; worker-src * data: blob:; frame-src * data: blob:; child-src * data: blob:"
   },
+  "homepage_url": "https://github.com/caua-f-o/poiesis",
   "minimum_chrome_version": "116"
 }

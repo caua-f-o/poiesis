@@ -28,13 +28,13 @@ O pacote da extensão também inclui componentes de terceiros, cada um sob a sua
 | Prettier (standalone) | MIT |
 | marked | MIT |
 | fflate | MIT |
-| Emmet (`emmet`, `@emmetio/*`) | MIT |
+| Núcleo do Emmet (`emmet`, `@emmetio/abbreviation`, `@emmetio/css-abbreviation`, `@emmetio/scanner`, `@emmetio/math-expression`) | MIT |
 | `@replit/codemirror-css-color-picker` e `@replit/codemirror-indentation-markers` | MIT |
 | DOMPurify | MPL-2.0 ou Apache-2.0 (usada aqui sob a Apache-2.0) |
 | class-variance-authority | Apache-2.0 |
 | lucide-react | ISC |
 | tslib | 0BSD |
 
-### Pendência conhecida
+### Emmet
 
-O pacote `@emmetio/codemirror6-plugin` (integração do Emmet com o CodeMirror) não declara licença, nem no npm nem no repositório. O núcleo do Emmet que ele embute é MIT. Antes de publicar, ou obtemos do autor uma licença explícita, ou trocamos o plugin por uma integração própria em cima do núcleo `emmet` (MIT).
+A integração do Emmet com o editor (`src/editor/emmet.ts`) foi escrita para o Poiesis e é GPL-3.0-only. Ela usa apenas o núcleo `emmet` e `@emmetio/math-expression`, ambos MIT. O plugin `@emmetio/codemirror6-plugin`, que não declara licença, não é mais usado.

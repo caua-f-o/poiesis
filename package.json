@@ -1,17 +1,26 @@
 {
   "name": "poiesis",
   "private": true,
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "Editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, como extensão do Chrome.",
   "license": "GPL-3.0-only",
   "author": "Cauã F. O.",
+  "homepage": "https://github.com/caua-f-o/poiesis",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caua-f-o/poiesis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/caua-f-o/poiesis/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "icons": "python3 design/subset_icons.py",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "promo": "python3 design/promo.py"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",
@@ -26,7 +35,7 @@
     "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
-    "@emmetio/codemirror6-plugin": "^0.4.1",
+    "@emmetio/math-expression": "1.0.5",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/roboto-flex": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
@@ -69,6 +78,7 @@
     "date-fns": "^4.4.0",
     "dompurify": "^3.4.17",
     "embla-carousel-react": "^8.6.0",
+    "emmet": "2.4.11",
     "fflate": "^0.8.3",
     "lucide-react": "^1.61.0",
     "marked": "^18.1.1",

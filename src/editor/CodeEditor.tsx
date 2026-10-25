@@ -39,20 +39,7 @@ import { fixesAt, lintExtension, quickFix, requestRelint, setLintFile, showFixAt
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { javascript, javascriptLanguage, scopeCompletionSource } from "@codemirror/lang-javascript";
-import {
-  abbreviationTracker,
-  expandAbbreviation,
-  EmmetKnownSyntax,
-  balanceOutward,
-  removeTag,
-  splitJoinTag,
-  evaluateMath,
-  goToTagPair,
-  incrementNumber1,
-  decrementNumber1,
-  wrapWithAbbreviation,
-  emmetConfig,
-} from "@emmetio/codemirror6-plugin";
+import { balanceOutward, decrementNumber, emmetExtension, evaluateMath, goToTagPair, incrementNumber, openWrap, removeTag, splitJoinTag } from "./emmet";
 import { colorPicker } from "@replit/codemirror-css-color-picker";
 import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { poiesisHighlight, poiesisTheme, structuralTags } from "./theme";
@@ -232,15 +219,12 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
   );
 
   const settingExt = (s: Settings, f: PFile, isDark: boolean) => {
-    const syntax = f.kind === "css" ? EmmetKnownSyntax.css : f.kind === "html" || /\.svg$/i.test(f.name) ? EmmetKnownSyntax.html : null;
+    const emmetOn = f.kind === "css" || f.kind === "html";
     return {
       font: EditorView.theme({ ".cm-scroller": { fontSize: s.fontSize + "px" } }),
       wrap: s.wrap ? EditorView.lineWrapping : [],
       tab: [EditorState.tabSize.of(s.tabSize), indentUnit.of(" ".repeat(s.tabSize))],
-      emmet:
-        s.emmet && syntax
-          ? [emmetConfig.of({ completionBoost: -30 }), abbreviationTracker({ syntax }), wrapWithAbbreviation("Ctrl-Shift-a"), keymap.of([{ key: "Mod-e", run: expandAbbreviation }])]
-          : [],
+      emmet: s.emmet && emmetOn ? emmetExtension(() => langOfKind(f.kind, f.name)) : [],
       dark: EditorView.darkTheme.of(isDark),
     };
   };
@@ -589,8 +573,8 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
           break;
         case "emmetWrap":
           v.focus();
-          v.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA", ctrlKey: true, shiftKey: true, bubbles: true }));
-          break;
+          openWrap(v);
+          return;
         case "emmetBalance":
           balanceOutward(v);
           break;
@@ -607,10 +591,10 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
           evaluateMath(v);
           break;
         case "emmetInc":
-          incrementNumber1(v);
+          incrementNumber(v);
           break;
         case "emmetDec":
-          decrementNumber1(v);
+          decrementNumber(v);
           break;
       }
       v.focus();

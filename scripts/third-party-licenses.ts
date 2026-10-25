@@ -9,8 +9,8 @@ import type { Plugin } from "vite";
 const LICENSE_FILE = /^(licen[sc]e|copying|notice)(\.(md|txt))?$/i;
 
 /** Pacotes que vão no pacote final sem aparecer no grafo de módulos:
- * material-symbols é copiado para public/; o núcleo do Emmet vem embutido no dist do plugin. */
-const EXTRA = ["material-symbols", "emmet", "@emmetio/abbreviation", "@emmetio/css-abbreviation", "@emmetio/scanner", "@emmetio/math-expression"];
+ * material-symbols é copiado para public/; os subpacotes do Emmet vêm embutidos no dist do `emmet`. */
+const EXTRA = ["material-symbols", "@emmetio/abbreviation", "@emmetio/css-abbreviation", "@emmetio/scanner"];
 
 /** Acha o pacote mesmo quando o pnpm não o expõe na raiz do node_modules. */
 function locate(name: string): string | null {
