@@ -24,9 +24,11 @@ body::before {{ content:""; position:absolute; inset:0; opacity:.5;
   -webkit-mask-image: radial-gradient(60% 80% at 80% 50%, #000, transparent); }}
 .i svg {{ width:{120*scale}px; height:{120*scale}px; display:block; filter: drop-shadow(0 {10*scale}px {30*scale}px rgba(0,0,0,.55)); }}
 .t {{ position:relative; }}
-h1 {{ margin:0; font:400 {92*scale}px/1 S; color:#f3ead6; text-shadow: 0 0 {18*scale}px rgba(246,196,97,.35); }}
-p {{ margin:{10*scale}px 0 0; font-size:{15.5*scale}px; letter-spacing:.22em; text-transform:uppercase; color:#e2bb72; font-weight:500; }}
-</style></head><body><div class="i">{icon}</div><div class="t"><h1>Poiesis</h1><p>Do código à forma</p></div></body></html>"""
+h1 {{ margin:0; padding:0 {14*scale}px {8*scale}px 0; font:400 {92*scale}px/1 S;
+  background: linear-gradient(180deg, #ffe3a0 0%, #f6c461 55%, #d8952f 100%); -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter: drop-shadow(0 0 {14*scale}px rgba(246,196,97,.35)); }}
+p {{ margin:{6*scale}px 0 0; font-size:{17*scale}px; letter-spacing:.06em; color:#f3ead6; font-weight:400; }}
+</style></head><body><div class="i">{icon}</div><div class="t"><h1>Poiesis</h1><p>Onde seu código ganha vida</p></div></body></html>"""
 
 with sync_playwright() as p:
     b = p.chromium.launch()

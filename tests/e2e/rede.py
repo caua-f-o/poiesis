@@ -119,7 +119,10 @@ page.locator("[role=dialog] button", has_text="Salvar mocks").click(); page.wait
 show_network()
 r = ev("fetch('/api/usuarios/7').then(r => r.json()).then(j => j.nome)")
 check("mock responde fetch", r == "Ana", r)
-page.wait_for_timeout(300)
+for _ in range(20):
+    if row("7").count() and "mock" in row("7").inner_text().lower():
+        break
+    page.wait_for_timeout(100)
 check("entrada marcada como mock", "mock" in row("7").inner_text().lower())
 d = ev("(async () => { const t = performance.now(); await fetch('/api/usuarios/1'); return performance.now() - t; })()")
 check("latência simulada (~300 ms)", isinstance(d, (int, float)) and d >= 280, d)

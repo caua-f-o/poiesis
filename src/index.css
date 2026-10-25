@@ -1062,3 +1062,17 @@
 :where(input[type="color"]) { appearance: none; -webkit-appearance: none; width: 28px; height: 28px; padding: 0; border: 2px solid var(--md-outline-variant); border-radius: 50%; background: none; cursor: pointer; }
 :where(input[type="color"])::-webkit-color-swatch-wrapper { padding: 0; }
 :where(input[type="color"])::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+/* marca "Poiesis": dourado da identidade em todos os temas (mais escuro nos claros, para contraste) */
+.pz-wordmark {
+  background: linear-gradient(180deg, #ffe3a0 0%, #f6c461 55%, #d8952f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 6px rgba(246, 196, 97, 0.25));
+  padding: 0 0.12em 0.1em 0; /* a caligrafia passa da caixa; sem isso o recorte corta a letra */
+}
+.light .pz-wordmark {
+  background-image: linear-gradient(180deg, #c98a2a 0%, #a8701e 55%, #7d5212 100%);
+  filter: none;
+}

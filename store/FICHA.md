@@ -13,7 +13,7 @@ Este arquivo reúne o texto e as respostas para colar no painel do desenvolvedor
 
 **Resumo** (vem do `manifest.json`, até 132 caracteres):
 
-> Do código à forma: editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, correções, console e projetos.
+> Onde seu código ganha vida: editor web (HTML, CSS, JS, JSON, Markdown) com preview ao vivo, correções, console e projetos.
 
 **Categoria:** Ferramentas do desenvolvedor (Developer Tools)
 
@@ -119,11 +119,13 @@ Privacy: Poiesis collects no data. Your code runs in an isolated sandbox page. O
 
 O que cada captura mostra:
 
-1. Editor e preview ao vivo com o modelo Gênese (tema Tinta & Ouro)
-2. Erro de digitação no CSS com o cartão de correção aberto (Drácula)
-3. Seletor de ícones Material Symbols buscando "casa"
-4. Prévia do Emmet antes de expandir (Tokyo Night)
-5. Preview no modo celular e console com objetos (Papel & Ouro)
+1. Editor e preview ao vivo com o modelo Gênese e o Pólen (Tinta & Ouro)
+2. Inspetor de elementos: seleção no preview, regras e especificidade (One Dark)
+3. Rede e APIs: requisição respondida por um mock, com o JSON formatado (Tokyo Night)
+4. Extension Studio: manifesto em formulário e popup simulado, com a Lúmen (Catppuccin Mocha)
+5. Correção rápida no CSS e preview no modo celular (Papel & Ouro, tema claro)
+
+As capturas são geradas por `python3 design/capturas.py` (depois de `pnpm build`), num perfil limpo.
 
 **Site:** https://github.com/caua-f-o/poiesis
 

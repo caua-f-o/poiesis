@@ -244,11 +244,16 @@ export function NetworkPanel({
               aria-selected={e.id === sel}
               data-on={e.id === sel}
               onClick={() => setSel(e.id === sel ? null : e.id)}
-              className={cn("md-item grid h-7 w-full grid-cols-[52px_52px_1fr_auto] items-center gap-2 rounded-none px-3 text-left font-code text-[11.5px]", e.partial && "opacity-75")}
+              className={cn(
+                "md-item grid h-7 w-full items-center gap-2 rounded-none px-3 text-left font-code text-[11.5px]",
+                cur ? "grid-cols-[30px_minmax(0,1fr)_auto]" : "grid-cols-[52px_52px_minmax(0,1fr)_auto]",
+                e.partial && "opacity-75"
+              )}
+              title={cur ? `${e.method} ${shortName(reveal ? e.url : masked(e).url)}` : undefined}
             >
               <span className={cn("tabular-nums", statusTone(e))}>{statusLabel(e)}</span>
-              <span className="text-md-on-variant">{e.method}</span>
-              <span className="flex min-w-0 items-center gap-1.5">
+              {!cur && <span className="truncate text-md-on-variant">{e.method}</span>}
+              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                 <span className="truncate text-md-on-surface">{shortName(reveal ? e.url : masked(e).url)}</span>
                 {e.source === "mock" && <span className="shrink-0 rounded bg-md-primary-c px-1 text-[9.5px] font-bold uppercase text-md-on-primary-c">mock</span>}
                 {e.source === "project" && <span className="shrink-0 rounded bg-md-high px-1 text-[9.5px] uppercase text-md-on-variant">projeto</span>}
@@ -257,7 +262,7 @@ export function NetworkPanel({
               <span className="flex items-center gap-2 text-md-on-variant">
                 {!cur && <span className="w-16 text-right">{KIND_LABEL[e.kind]}</span>}
                 {!cur && <span className="w-16 text-right tabular-nums">{e.resBody?.size ? formatBytes(e.resBody.size) : ""}</span>}
-                <span className="w-14 text-right tabular-nums">{e.duration !== undefined ? `${Math.round(e.duration)} ms` : ""}</span>
+                <span className={cn("text-right tabular-nums", cur ? "w-12" : "w-14")}>{e.duration !== undefined ? `${Math.round(e.duration)} ms` : ""}</span>
                 {!cur && (
                   <span className="relative h-1.5 w-24 overflow-hidden rounded-full bg-md-high">
                     <span

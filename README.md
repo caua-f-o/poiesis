@@ -1,7 +1,7 @@
 # Poiesis
 
 > **ποίησις** (*poíēsis*) — para os gregos, o ato de trazer à existência o que antes não era.
-> Código vira forma.
+> **Onde seu código ganha vida.**
 
 Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e JavaScript com realce de sintaxe estilo VS Code, preview ao vivo ao lado, console de verdade e importação de projetos inteiros.
 
