@@ -31,6 +31,12 @@ export const DEFAULT_SETTINGS: Settings = {
   history: { ...DEFAULT_HISTORY },
   localFolders: false,
   folderIgnore: "node_modules, .git, dist, build, .DS_Store, Thumbs.db",
+  companion: "polen",
+  companionLevel: "discreto",
+  companionPlace: "rail",
+  companionMarks: {},
+  musicVolume: 0.45,
+  musicAutoPause: true,
 };
 
 export function newProject(templateId = "gênese", name?: string): Project {
@@ -60,6 +66,14 @@ function sanitize(ws: Workspace | null | undefined): Workspace {
   if (!ws || ws.version !== 1 || !ws.order?.length) return freshWorkspace();
   ws.settings = { ...DEFAULT_SETTINGS, ...(ws.settings || {}) };
   ws.settings.history = { ...DEFAULT_HISTORY, ...(ws.settings.history || {}) };
+  // valores vindos de backup ou de versões antigas: só os conhecidos
+  const st = ws.settings;
+  if (!["polen", "lumen", "nenhum"].includes(st.companion)) st.companion = DEFAULT_SETTINGS.companion;
+  if (!["foco", "discreto", "vivo"].includes(st.companionLevel)) st.companionLevel = DEFAULT_SETTINGS.companionLevel;
+  if (st.companionPlace !== "rail" && st.companionPlace !== "top") st.companionPlace = "rail";
+  if (!st.companionMarks || typeof st.companionMarks !== "object") st.companionMarks = {};
+  if (typeof st.musicVolume !== "number" || !(st.musicVolume >= 0 && st.musicVolume <= 1)) st.musicVolume = DEFAULT_SETTINGS.musicVolume;
+  st.musicAutoPause = st.musicAutoPause !== false;
   ws.order = ws.order.filter((id) => ws.projects[id]);
   if (!ws.order.length) return freshWorkspace();
   if (!ws.projects[ws.currentId]) ws.currentId = ws.order[0];

@@ -36,6 +36,10 @@ interface Props {
   onExportHtml(): void;
   onExportZip(): void;
   onPalette(): void;
+  /** botão da música de foco */
+  music?: React.ReactNode;
+  /** companheiro, quando posicionado na barra superior */
+  companion?: React.ReactNode;
 }
 
 /** Top app bar (pequena) do Material 3. */
@@ -116,6 +120,7 @@ export function TopAppBar(p: Props) {
         )}
       </div>
 
+      {p.companion && <div className="ml-1 flex h-14 items-center">{p.companion}</div>}
       <div className="flex-1" />
 
       <button onClick={p.onPalette} className="md-search hidden w-[300px] text-left xl:flex">
@@ -191,6 +196,8 @@ export function TopAppBar(p: Props) {
           </Tip>
         ))}
       </div>
+
+      {p.music}
 
       <div className="mx-1 h-6 w-px bg-md-outline-v" />
 

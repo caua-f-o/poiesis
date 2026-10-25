@@ -7,6 +7,7 @@ import { Icon } from "./Icon";
 import { fileIcon } from "./fileIcon";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { CompanionArt } from "./Companion";
 import { Slider } from "@/components/ui/slider";
 import {
   CommandDialog,
@@ -161,6 +162,86 @@ export function SettingsDialog({
               </label>
             </div>
           )}
+          <div className="eyebrow pb-1 pt-4">Companheiro e música</div>
+          <div className="grid grid-cols-3 gap-2 py-2" role="radiogroup" aria-label="Companheiro">
+            {(
+              [
+                ["polen", "Pólen", "Caloroso e curioso. Celebra a criação com saltinhos."],
+                ["lumen", "Lúmen", "Serena e observadora. Brilha com calma, perto do foco."],
+                ["nenhum", "Nenhum", "Sem companheiro na tela."],
+              ] as const
+            ).map(([id, name, desc]) => (
+              <button
+                key={id}
+                role="radio"
+                aria-checked={settings.companion === id}
+                onClick={() => onChange({ companion: id })}
+                className={cn("md-item h-auto flex-col items-center gap-1 rounded-2xl p-3 text-center", settings.companion === id ? "bg-md-secondary-c outline outline-2 outline-md-primary" : "md-card-outlined")}
+              >
+                <span className="flex h-14 w-14 items-center justify-center">
+                  {id === "nenhum" ? <Icon name="block" size={28} className="text-md-outline" /> : <CompanionArt id={id} pose="idle" level="foco" bloom={!!settings.companionMarks.firstExport} />}
+                </span>
+                <span className="text-[13px] font-semibold text-md-on-surface">{name}</span>
+                <span className="text-[11px] leading-snug text-md-on-variant">{desc}</span>
+              </button>
+            ))}
+          </div>
+          {settings.companion !== "nenhum" && (
+            <>
+              <Row
+                icon="motion_mode"
+                title="Quanto ele se mexe"
+                hint={
+                  settings.companionLevel === "foco"
+                    ? "Foco: parado, sem reações nem partículas (só um carinho quando você clica)"
+                    : settings.companionLevel === "discreto"
+                      ? "Discreto: respira e reage só ao que importa (criar, executar, erro, exportar)"
+                      : "Vivo: acompanha a digitação e todas as reações, com limites de frequência"
+                }
+              >
+                <div className="md-seg" role="radiogroup" aria-label="Nível de animação">
+                  {(
+                    [
+                      ["foco", "Foco"],
+                      ["discreto", "Discreto"],
+                      ["vivo", "Vivo"],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <button key={k} role="radio" aria-checked={settings.companionLevel === k} data-on={settings.companionLevel === k} onClick={() => onChange({ companionLevel: k })} className="!px-2.5 text-[12px]">
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row icon="pin_drop" title="Onde fica" hint="Nunca na frente do código nem do preview">
+                <div className="md-seg" role="radiogroup" aria-label="Posição do companheiro">
+                  {(
+                    [
+                      ["rail", "Barra lateral"],
+                      ["top", "Barra superior"],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <button key={k} role="radio" aria-checked={settings.companionPlace === k} data-on={settings.companionPlace === k} onClick={() => onChange({ companionPlace: k })} className="!px-2.5 text-[12px]">
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              {!!settings.companionMarks.firstExport && (
+                <Row icon="local_florist" title="Marcos" hint={`Primeira exportação em ${new Date(settings.companionMarks.firstExport).toLocaleDateString("pt-BR")} — ${settings.companion === "polen" ? "Pólen ganhou uma flor" : "Lúmen ganhou uma estrela"}. Só enfeite, fica neste navegador.`}>
+                  <button className="md-btn md-btn-text" onClick={() => onChange({ companionMarks: {} })}>
+                    Redefinir
+                  </button>
+                </Row>
+              )}
+            </>
+          )}
+          <Row icon="music_note" title="Música de foco" hint={`Volume ${Math.round(settings.musicVolume * 100)}. Toque pelo botão de fone na barra superior.`}>
+            <label className="flex items-center gap-2 text-[12.5px] text-md-on-surface">
+              <Switch checked={settings.musicAutoPause} onCheckedChange={(v) => onChange({ musicAutoPause: v })} aria-label="Pausar a música com a aba escondida" />
+              Pausar com a aba escondida
+            </label>
+          </Row>
           <div className="eyebrow pb-1 pt-4">Histórico local</div>
           <Row icon="history" title="Versão automática" hint={settings.history.interval ? `Depois de ${settings.history.interval} s sem editar, se algo mudou` : "Desligada — só pontos manuais e antes de operações"}>
             <div className="md-seg">

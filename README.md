@@ -64,6 +64,10 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - **Simulação do chrome.*:** `chrome.storage` inicial, abas fictícias e respostas simuladas para mensagens ao service worker, aos content scripts e a outras extensões, num arquivo do projeto (`poiesis.chrome.json`) que fica fora do ZIP.
 - Exporta um ZIP pronto para "Carregar sem compactação" em `chrome://extensions`.
 
+**Companheiros e música de foco:**
+- **Pólen** (o broto curioso) ou **Lúmen** (a luz serena) fazem companhia na barra lateral: reagem com gestos ao que você faz (criar um arquivo, executar sem erros, um erro, exportar) e dormem quando você para. Nunca falam, nunca cobram atenção e nunca ficam na frente do código. Níveis Foco, Discreto e Vivo, ou nenhum, nas Preferências.
+- **Música de foco** (botão de fone na barra superior): "Jardim de Luz", uma faixa original do Poiesis, gerada por código, em loop sem emenda, com volume e pausa automática. Vem dentro da extensão; nada é transmitido.
+
 **Pasta no computador** (opcional; ligue em Preferências):
 - Abra uma pasta real do computador ou vincule um projeto a uma pasta. As edições são gravadas direto nos arquivos, só os que mudaram.
 - Criar, renomear e excluir no explorador também valem na pasta. `node_modules`, `.git`, `dist`, o `.gitignore` e o que você configurar ficam de fora.
@@ -104,7 +108,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 
 ## Roadmap
 
-Próximos passos (os mascotes Lúmen e Pólen e a música de foco) em [`ROADMAP.md`](ROADMAP.md).
+Planejamento e histórico das fases em [`ROADMAP.md`](ROADMAP.md).
 
 ## Privacidade
 
@@ -125,6 +129,8 @@ pnpm build   # gera a extensão em dist/
 Stack: React 19, TypeScript, Vite, Tailwind, Radix/shadcn (reestilizado em Material 3), CodeMirror 6, núcleo do Emmet (com integração própria em `src/editor/emmet.ts`), Prettier, fflate. Fontes locais: Roboto Flex, JetBrains Mono, Instrument Serif e Material Symbols Rounded. Descrições de reserva do MDN via `@vscode/web-custom-data` (`python3 design/build_mdn.py`).
 
 `pnpm test:e2e` roda os testes de ponta a ponta em `tests/e2e/` contra o `dist/` (precisa de Python com Playwright e Chromium). `pnpm promo` regenera as imagens promocionais em `store/`. O texto da ficha da Chrome Web Store, as justificativas de permissão e as respostas da aba de privacidade estão em [`store/FICHA.md`](store/FICHA.md).
+
+A música de foco é gerada por `python3 design/musica/compor.py` (precisa de numpy, scipy e ffmpeg com libopus) e sai em `public/audio/`.
 
 O build também gera `dist/LICENSE` e `dist/THIRD_PARTY_LICENSES.txt`, que traz a licença de cada pacote que entra na extensão.
 

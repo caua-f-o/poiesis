@@ -20,10 +20,12 @@ interface Props {
   onSelect(p: Panel): void;
   onSettings(): void;
   onHelp(): void;
+  /** companheiro (Pólen ou Lúmen), no espaço livre da barra */
+  companion?: React.ReactNode;
 }
 
 /** Navigation rail do Material 3: destinos com indicador em pílula e rótulo. */
-export function NavRail({ panel, open, onSelect, onSettings, onHelp }: Props) {
+export function NavRail({ panel, open, onSelect, onSettings, onHelp, companion }: Props) {
   return (
     <nav className="flex w-[76px] shrink-0 flex-col items-center gap-1 pb-3 pt-2">
       <div className="mb-3 flex h-12 items-center">
@@ -48,6 +50,7 @@ export function NavRail({ panel, open, onSelect, onSettings, onHelp }: Props) {
         );
       })}
       <div className="flex-1" />
+      {companion && <div className="pzc-rail mb-2 flex justify-center">{companion}</div>}
       <Tip label="Atalhos de teclado" side="right">
         <button onClick={onHelp} className="md-icon-btn" aria-label="Atalhos de teclado">
           <Icon name="keyboard" size={21} />

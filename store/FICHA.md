@@ -56,6 +56,10 @@ INSPETOR DE ELEMENTOS
 • Force :hover e :focus e teste mudanças temporárias; copie o CSS resultante quando gostar
 • Vá do elemento para a tag no HTML ou a regra no CSS, e grave as mudanças no código com um clique
 
+COMPANHIA E FOCO
+• Pólen ou Lúmen, companheiros discretos que reagem com gestos e nunca atrapalham o código
+• Música de foco original, em loop, que vem dentro da extensão
+
 HISTÓRICO LOCAL
 • Versões automáticas enquanto você trabalha e antes de excluir, importar ou substituir
 • Pontos de restauração com nome e nota
@@ -95,6 +99,7 @@ A complete web code editor in a Chrome tab: write HTML, CSS and JavaScript and s
 • Extension Studio: MV3 templates, manifest form synced with JSON, explained permissions, validation with quick fixes, simulated chrome.* preview and ZIP export
 • Element inspector: pick in the preview, matched CSS rules, computed values, box model, forced states and temporary edits
 • Network panel: fetch/XHR log with diagnostics, offline mocks and an API console (secrets masked)
+• Optional companions (Pólen and Lúmen) that react with gestures, and a bundled original focus-music loop
 • Local version history: automatic snapshots, named restore points, side-by-side diff and restore (no Git, no cloud)
 • Optional: edit a real folder on your computer directly, with external changes and conflict handling
 • Multiple projects with folders, import/export (.zip or single HTML), JSON, Markdown and text files

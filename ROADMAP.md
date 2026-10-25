@@ -15,7 +15,7 @@ Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos m
 | **4 — Inspetor MVP** (módulo 1) | Seleção no preview, árvore DOM, estilos computados, box model, edição temporária | ✅ 2.7.0 |
 | **5 — Extension Studio MVP** (módulo 5) | Templates MV3, editor de manifesto sincronizado, validação e exportação em ZIP | ✅ 2.8.0 |
 | **6 — Integração avançada** | Edição persistente pelo inspetor (com mapeamento seguro), fixtures, mocks de `chrome.*`, snapshots coordenados entre módulos | ✅ 2.9.0 |
-| **7 — Companhia e foco** (módulos 8 e 9) | Mascotes Lúmen e Pólen; botão de música de fundo para foco | Planejado |
+| **7 — Companhia e foco** (módulos 8 e 9) | Mascotes Lúmen e Pólen; botão de música de fundo para foco | ✅ 2.10.0 |
 
 O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runtime do preview já tem. É incremento, não reescrita, e já valida a ponte tipada que o Inspetor também vai usar.
 
@@ -240,53 +240,28 @@ A [File System Access API](https://developer.chrome.com/docs/capabilities/web-ap
 3. **Reconexão,** permissão persistente, somente leitura e desvincular.
 4. **Ignorados configuráveis,** limites e polimento (status na barra, paleta de comandos e atalhos).
 
-## Módulo 8 — Mascotes Lúmen e Pólen
+## Módulo 8 — Companheiros Pólen e Lúmen ✅ 2.10.0
 
-### Objetivo
+A personalidade, os princípios e os estados estão em [`docs/personalidade-polen-e-lumen.md`](docs/personalidade-polen-e-lumen.md). A implementação segue esse documento: **gestos e expressões são a linguagem** (sem falas aleatórias), nada interrompe a digitação e ninguém pede atenção.
 
-Dois mascotes que fazem companhia enquanto a pessoa programa, no espírito do "Claude buddy": pequenos, simpáticos e discretos. Eles dão personalidade ao Poiesis e reagem ao que acontece no editor, sem atrapalhar o trabalho.
+**O que existe** (`src/lib/companion.ts`, `src/components/Companion.tsx`, estilos em `src/index.css` → "companheiros"):
 
-### Ideia inicial
+- **Pólen** (semente creme e dourada, coroa de folhas, saltinhos) e **Lúmen** (espírito de luz marfim e âmbar, halo, flutuação). Arte em SVG por partes, separada da lógica: as poses trocam olhos e boca e o CSS anima grupos (folhas, halo, brilho). Para trocar pela arte definitiva, basta manter as classes.
+- **Máquina de estados compartilhada:** estados de base (repouso, acompanhando a digitação, observando no inspetor, dormindo depois de 5 min parado) e reações curtas (0,8–1,5 s): curiosidade (arquivo criado ou aberto, importação), comemoração (execução sem erros pedida por você, ou que resolveu erros; exportação), dúvida (erro no preview, **uma vez por ocorrência**), carinho (clique).
+- **Prioridade e limites:** foco e movimento reduzido acima de tudo; erros antes de ações; intervalo mínimo entre reações; digitação agrupada (não reage a cada tecla).
+- **Níveis:** Foco (parado, sem partículas), Discreto (padrão: respira e reage ao que importa) e Vivo (acompanha a digitação, folhas e chamas em movimento). Escolha entre Pólen, Lúmen ou nenhum.
+- **Posição:** barra lateral (padrão, no espaço livre; some se faltar altura) ou barra superior. Nunca na frente do código nem do preview, e só a área do companheiro recebe cliques; o teclado nunca é capturado.
+- **Marco cosmético:** na primeira exportação, Pólen ganha uma flor e Lúmen uma estrela que orbita o halo. Fica nas preferências deste navegador e pode ser redefinido. Sem tarefas, punições ou rankings.
+- Respeita `prefers-reduced-motion` (só troca de pose), congela as animações com a aba escondida e não usa rede nem permissões.
 
-- **Lúmen** e **Pólen** ficam num canto da interface (posição configurável) e podem ser escondidos a qualquer momento.
-- Reagem a eventos locais do editor: salvar, erro no console, verificação sem problemas, preview recarregado, muito tempo parado, fim de uma sessão longa (lembrete de pausa).
-- Falas curtas e ocasionais, nunca em sequência; dá para silenciar as falas e manter só as animações.
-- Uma dica rápida de vez em quando (atalhos, recursos pouco conhecidos), desligável.
+**Testes:** `tests/e2e/companheiros.py` (37 verificações, junto com a música).
 
-### Regras
+**Pendências:** arte definitiva desenhada pelo autor (a atual é um ponto de partida em SVG); som opcional (desligado por padrão, como pede o documento).
 
-- **Desligável** nas Preferências, com opção de mostrar só um, os dois ou nenhum.
-- **Sem rede, sem telemetria:** tudo roda localmente, com as artes e as falas empacotadas na extensão.
-- Não cobre o editor nem o preview, não rouba o foco e respeita `prefers-reduced-motion` (sem animação, só troca de pose).
-- Acessível: as falas usam uma região `aria-live` educada, e o mascote pode ser ignorado pelo leitor de tela.
-- Leve: animação em CSS ou SVG, sem biblioteca pesada.
+## Módulo 9 — Música de foco ✅ 2.10.0
 
-### Em aberto
+**A faixa:** "Jardim de Luz", **composição original** do Poiesis, gerada por código em [`design/musica/compor.py`](design/musica/compor.py): síntese aditiva e FM (piano elétrico, pad, baixo, sininhos e uma bateria lo-fi bem baixinha), Ré maior, 68 BPM, 2 min 49 s. Não usa nenhuma amostra de terceiros, então a licença é a do projeto. O script é reproduzível (semente fixa) e faz o loop sem emenda: os rastros das notas e a reverberação do fim caem no começo, e os filtros finais "aquecem" com o fim da faixa. Sai em Opus (72 kbps, ~1,7 MB) em `public/audio/`.
 
-- **Arte:** a ilustração dos dois (possivelmente feita pelo autor) e o estilo das poses.
-- **Personalidade** de cada um e como se diferenciam (por exemplo, um mais curioso e outro mais calmo).
-- O conjunto de eventos e falas da primeira versão.
+**O player** (`src/lib/useFocusMusic.ts`, `src/components/MusicButton.tsx`): botão de fone na barra superior, desligado por padrão e só começa com um clique. Toca pelo Web Audio, em loop sem lacuna, com entrada (2,5 s) e saída (1,2 s) suaves. Volume salvo nas preferências; pausa automática opcional com a aba escondida (volta quando ela reaparece). Enquanto toca, os companheiros ficam mais tranquilos (não acompanham a digitação). Nada é baixado nem transmitido.
 
-## Módulo 9 — Música de foco
-
-### Objetivo
-
-Um botão para tocar uma música de fundo relaxante, que ajuda na concentração.
-
-### Ideia inicial
-
-- Botão na barra superior (ou junto dos mascotes) para tocar e pausar, com volume e repetição.
-- **Desligado por padrão.** Só começa depois de um clique, conforme as regras de reprodução automática do navegador.
-- Entrada e saída suaves (*fade*), e pausa automática opcional quando a aba fica escondida.
-- A preferência de volume fica salva localmente.
-
-### Regras
-
-- A faixa (a definir) vem **empacotada na extensão**: sem streaming e sem nenhuma conexão externa, para manter a privacidade.
-- Só faixas com licença compatível (CC0, domínio público ou composição própria), registradas em `THIRD_PARTY_LICENSES.txt` quando for o caso.
-- Atenção ao tamanho do pacote: um arquivo comprimido (Opus/OGG) curto e que repete bem.
-
-### Em aberto
-
-- Qual música (ou quais, se houver mais de uma opção) e a licença.
-
+**Pendências:** outras faixas (ou variações geradas pelo mesmo script) para escolher.

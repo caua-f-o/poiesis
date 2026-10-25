@@ -26,3 +26,6 @@ dist-ssr
 # testes E2E
 tests/**/__pycache__
 tests/**/*.png
+
+# áudio intermediário da música de foco
+design/musica/*.wav

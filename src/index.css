@@ -801,3 +801,131 @@
   color: var(--md-inverse-on-surface) !important;
   opacity: 0.82;
 }
+
+/* ======================= companheiros (Pólen e Lúmen) =======================
+ * Grupos animados por pose e nível. "foco" e prefers-reduced-motion: sem animação,
+ * só troca de pose. .pzc-paused (aba escondida) congela tudo. */
+.pzc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  padding: 2px;
+  color: var(--md-on-surface-variant);
+  transition: background-color 0.2s;
+}
+.pzc-btn:hover { background: color-mix(in oklab, var(--md-on-surface) 6%, transparent); }
+.pzc-btn:focus-visible { outline: 2px solid var(--md-primary); outline-offset: 1px; }
+.pzc { width: 100%; height: 100%; overflow: visible; }
+/* só os grupos animados giram/escalam em torno da própria caixa (as partes com transform no SVG ficam como estão) */
+.pzc :is(.pzc-hop, .pzc-body, .pzc-eyes, .pzc-open, .pzc-leaves, .pzc-lf1, .pzc-lf2, .pzc-lf3, .pzc-float, .pzc-glow, .pzc-halo, .pzc-ring, .pzc-star, .pzc-dot, .pzc-wisp, .pzc-z1, .pzc-z2, .pzc-orbit) { transform-box: fill-box; }
+
+/* partes que dependem da pose */
+.pzc .pzc-closed, .pzc .pzc-joy, .pzc .pzc-m, .pzc .pzc-zz, .pzc .pzc-fx, .pzc .pzc-ring { display: none; }
+.pzc .pzc-m-smile { display: inline; }
+.pzc.pose-sleep .pzc-open, .pzc.pose-happy .pzc-open, .pzc.pose-pet .pzc-open { display: none; }
+.pzc.pose-sleep .pzc-closed { display: inline; }
+.pzc.pose-happy .pzc-joy, .pzc.pose-pet .pzc-joy { display: inline; }
+.pzc.pose-happy .pzc-m-smile, .pzc.pose-pet .pzc-m-smile, .pzc.pose-curious .pzc-m-smile, .pzc.pose-doubt .pzc-m-smile { display: none; }
+.pzc.pose-happy .pzc-m-big, .pzc.pose-pet .pzc-m-big { display: inline; }
+.pzc.pose-curious .pzc-m-o { display: inline; }
+.pzc.pose-doubt .pzc-m-flat { display: inline; }
+.pzc.pose-sleep .pzc-zz { display: inline; }
+.pzc-polen.pose-happy .pzc-fx, .pzc-lumen.pose-curious .pzc-fx { display: inline; }
+.pzc-lumen.pose-happy .pzc-ring { display: inline; }
+
+.pzc .pzc-body, .pzc .pzc-eyes, .pzc .pzc-leaves, .pzc .pzc-halo, .pzc .pzc-glow, .pzc .pzc-blush, .pzc .pzc-wisp {
+  transition: transform 0.4s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.5s;
+}
+.pzc .pzc-body { transform-origin: 50% 100%; }
+.pzc .pzc-leaves, .pzc .pzc-lf1, .pzc .pzc-lf2, .pzc .pzc-lf3 { transform-origin: 50% 100%; }
+.pzc .pzc-eyes { transform-origin: 50% 50%; }
+.pzc .pzc-open { transform-origin: 50% 50%; }
+
+/* --- Pólen --- */
+.pzc-polen .pzc-body { animation: pzc-breathe 3.8s ease-in-out infinite; }
+.pzc-polen .pzc-open { animation: pzc-blink 5.6s infinite; }
+.pzc-polen.lvl-vivo .pzc-lf1 { animation: pzc-sway 4.6s ease-in-out infinite; }
+.pzc-polen.lvl-vivo .pzc-lf2 { animation: pzc-sway 5.2s ease-in-out -1.4s infinite reverse; }
+.pzc-polen.lvl-vivo .pzc-lf3 { animation: pzc-sway 3.9s ease-in-out -0.6s infinite; }
+.pzc-polen.pose-watch .pzc-eyes { transform: translateX(1.3px); }
+.pzc-polen.place-top.pose-watch .pzc-eyes { transform: translate(0.6px, 1.2px); }
+.pzc-polen.pose-observe .pzc-eyes { transform: translate(1px, -0.4px); }
+.pzc-polen.pose-observe .pzc-body { animation: none; }
+.pzc-polen.pose-curious .pzc-body { animation: none; transform: rotate(-9deg); }
+.pzc-polen.pose-curious .pzc-leaves { transform: rotate(-6deg) scale(1.05); }
+.pzc-polen.pose-doubt .pzc-body { animation: none; transform: rotate(8deg); }
+.pzc-polen.pose-doubt .pzc-eyes { transform: translateY(-0.8px); }
+.pzc-polen.pose-doubt .pzc-lf2 { transform: rotate(14deg); }
+.pzc-polen.pose-happy .pzc-hop { animation: pzc-hop 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) 1; }
+.pzc-polen.pose-happy .pzc-leaves { transform: scale(1.12); }
+.pzc-polen.pose-happy .pzc-dot { animation: pzc-rise 1.2s ease-out forwards; opacity: 0; }
+.pzc-polen.pose-pet .pzc-body { animation: pzc-squish 0.55s ease-out 1; }
+.pzc-polen.pose-pet .pzc-blush, .pzc-lumen.pose-pet .pzc-blush { opacity: 0.75; }
+.pzc-polen.pose-sleep .pzc-body { animation: pzc-breathe 6s ease-in-out infinite; transform: scaleY(0.95); }
+.pzc-polen.pose-sleep .pzc-lf1 { animation: none; transform: rotate(28deg); }
+.pzc-polen.pose-sleep .pzc-lf2 { animation: none; transform: rotate(-28deg); }
+.pzc-polen.pose-sleep .pzc-lf3 { animation: none; transform: scaleY(0.8); }
+
+/* --- Lúmen --- */
+.pzc-lumen .pzc-float { animation: pzc-float 5.4s ease-in-out infinite; }
+.pzc-lumen .pzc-glow { animation: pzc-glow 4.6s ease-in-out infinite; transform-origin: 50% 50%; }
+.pzc-lumen .pzc-open { animation: pzc-blink 6.4s -2s infinite; }
+.pzc-lumen.lvl-vivo .pzc-wisp-l { animation: pzc-sway 4.8s ease-in-out infinite; transform-origin: 100% 100%; }
+.pzc-lumen.lvl-vivo .pzc-wisp-r { animation: pzc-sway 5.3s ease-in-out -1s infinite reverse; transform-origin: 0% 100%; }
+.pzc-lumen .pzc-halo { opacity: 0.75; }
+.pzc-lumen .pzc-orbit { animation: pzc-orbit 9s linear infinite; transform-origin: -7.5px 0.5px; }
+.pzc-lumen.pose-watch .pzc-eyes { transform: translateX(1.1px); }
+.pzc-lumen.place-top.pose-watch .pzc-eyes { transform: translate(0.5px, 1px); }
+.pzc-lumen.pose-observe .pzc-float { animation-duration: 9s; }
+.pzc-lumen.pose-observe .pzc-eyes { transform: scaleY(0.82); }
+.pzc-lumen.pose-curious .pzc-body { transform: scale(1.06) rotate(-6deg); }
+.pzc-lumen.pose-curious .pzc-star { animation: pzc-twinkle 1.2s ease-out forwards; transform-origin: 50% 50%; }
+.pzc-lumen.pose-doubt .pzc-body { transform: rotate(7deg); }
+.pzc-lumen.pose-doubt .pzc-glow { animation: none; opacity: 0.35; }
+.pzc-lumen.pose-happy .pzc-halo { opacity: 1; transform: scale(1.12); }
+.pzc-lumen.pose-happy .pzc-glow { animation: none; opacity: 1; }
+.pzc-lumen.pose-happy .pzc-ring { animation: pzc-ring 1.3s ease-out forwards; transform-origin: 50% 50%; }
+.pzc-lumen.pose-pet .pzc-body { transform: scale(1.07) rotate(5deg); }
+.pzc-lumen.pose-pet .pzc-glow { animation: none; opacity: 0.95; }
+.pzc-lumen.pose-sleep .pzc-float { animation-duration: 9s; }
+.pzc-lumen.pose-sleep .pzc-body { transform: scale(0.92) translateY(2px); }
+.pzc-lumen.pose-sleep .pzc-glow { animation: none; opacity: 0.3; }
+.pzc-lumen.pose-sleep .pzc-halo { opacity: 0.35; }
+.pzc-lumen.pose-sleep .pzc-wisp { transform: scale(0.7); }
+
+/* zz e marcos */
+.pzc.pose-sleep .pzc-z1 { animation: pzc-z 3.2s ease-in-out infinite; }
+.pzc.pose-sleep .pzc-z2 { animation: pzc-z 3.2s ease-in-out 1.6s infinite; }
+
+/* níveis */
+.pzc.lvl-foco *, .pzc.lvl-foco { animation: none !important; }
+.pzc.lvl-discreto .pzc-body { animation-duration: 5s; }
+.pzc-paused .pzc *, .pzc-paused.pzc * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pzc *, .pzc { animation: none !important; transition: none !important; }
+}
+
+@keyframes pzc-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(0.99, 1.03); } }
+@keyframes pzc-blink { 0%, 93%, 100% { transform: scaleY(1); } 95.5% { transform: scaleY(0.1); } }
+@keyframes pzc-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes pzc-hop { 0%, 100% { transform: translateY(0); } 28% { transform: translateY(-7px); } 52% { transform: translateY(0); } 68% { transform: translateY(-2.5px); } 84% { transform: translateY(0); } }
+@keyframes pzc-squish { 0%, 100% { transform: scale(1, 1); } 35% { transform: scale(1.07, 0.92); } 70% { transform: scale(0.97, 1.03); } }
+@keyframes pzc-rise { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 25% { opacity: 1; } 100% { transform: translateY(-16px) scale(1); opacity: 0; } }
+@keyframes pzc-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.4px); } }
+@keyframes pzc-glow { 0%, 100% { opacity: 0.55; transform: scale(0.97); } 50% { opacity: 0.85; transform: scale(1.03); } }
+@keyframes pzc-ring { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(1.7); opacity: 0; } }
+@keyframes pzc-twinkle { 0% { transform: scale(0) rotate(0); opacity: 0; } 30% { transform: scale(1.15) rotate(20deg); opacity: 1; } 100% { transform: scale(0.8) rotate(45deg); opacity: 0; } }
+@keyframes pzc-orbit { to { transform: rotate(360deg); } }
+@keyframes pzc-z { 0% { transform: translate(0, 2px); opacity: 0; } 30% { opacity: 0.8; } 100% { transform: translate(2px, -5px); opacity: 0; } }
+/* o companheiro some da barra lateral quando falta altura (nunca empurra os botões) */
+@media (max-height: 700px) {
+  .pzc-rail { display: none; }
+}
+/* equalizador do botão de música */
+.pz-eq { position: absolute; bottom: 5px; right: 6px; display: flex; gap: 1px; align-items: flex-end; height: 7px; }
+.pz-eq i { width: 2px; background: var(--md-primary); border-radius: 1px; animation: pz-eq 1.1s ease-in-out infinite; }
+.pz-eq i:nth-child(2) { animation-delay: -0.4s; }
+.pz-eq i:nth-child(3) { animation-delay: -0.8s; }
+@keyframes pz-eq { 0%, 100% { height: 2px; } 50% { height: 7px; } }
+@media (prefers-reduced-motion: reduce) { .pz-eq i { animation: none; height: 5px; } }

@@ -47,6 +47,10 @@ import { InspectorPanel, emptyInspector, type InspectorState } from "@/component
 import { applyChanges, changesToCss, pathToSource, ruleInCss, sourceToPath, type MatchedRule, type NodeInfo, type PathStep, type TempChange } from "@/lib/inspect";
 import { MOCKS_FILE, NET_LIMITS, maskBody, parseMocks, stringifyMocks, toHar, type MockRule, type MocksConfig, type NetEntry } from "@/lib/net";
 import { StatusBar } from "@/components/StatusBar";
+import { Companion } from "@/components/Companion";
+import { MusicButton } from "@/components/MusicButton";
+import { useCompanion } from "@/lib/companion";
+import { useFocusMusic } from "@/lib/useFocusMusic";
 import { ExtensionPanel } from "@/components/ExtensionPanel";
 import { ManifestForm } from "@/components/ManifestForm";
 import { ExportExtensionDialog, IconsDialog, NewExtensionDialog } from "@/components/ExtensionDialogs";
@@ -270,6 +274,22 @@ export default function App() {
   const settings: Settings | null = ws?.settings ?? null;
   const theme = themeById(settings?.theme ?? "tinta");
 
+  /* ---------------- companheiro e música de foco ---------------- */
+  const comp = useCompanion(settings?.companionLevel ?? "discreto", !!settings && settings.companion !== "nenhum");
+  const emitRef = useRef(comp.emit);
+  emitRef.current = comp.emit;
+  const music = useFocusMusic(settings?.musicVolume ?? 0.45, settings?.musicAutoPause ?? true);
+  useEffect(() => emitRef.current(music.state === "playing" ? "focus:on" : "focus:off"), [music.state]);
+  const [pageHidden, setPageHidden] = useState(false);
+  useEffect(() => {
+    const on = () => setPageHidden(document.hidden);
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
+  /** estatística da execução atual, para o companheiro comemorar só quando faz sentido */
+  const runStats = useRef({ errors: 0, prevErrors: 0, manual: false, seq: 0 });
+  const userRun = useRef(false);
+
   useEffect(() => {
     if (settings) applyTheme(themeById(settings.theme));
   }, [settings?.theme]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -428,6 +448,8 @@ export default function App() {
     const ext = extPreview(p, previewPageRef.current, w.settings.device, extStorage.current[p.id]);
     // numa extensão cada página carrega os próprios scripts: injetar os "soltos" misturaria popup, opções e service worker
     const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject && !ext, storage: previewStorage.current[p.id], session: SESSION, mocks: activeMocks(p), ext });
+    runStats.current = { errors: 0, prevErrors: runStats.current.errors, manual: userRun.current, seq: runStats.current.seq + 1 };
+    userRun.current = false;
     if (w.settings.clearOnRun) setLogs([]);
     if (!uiRef.current.netPreserve) setNetLogs((m) => (m[p.id]?.length ? { ...m, [p.id]: [] } : m));
     setErrorLine(null);
@@ -436,6 +458,11 @@ export default function App() {
     if (hard) setTimeout(() => preview.current?.reload(), 0);
     setTimeout(() => setBusy(false), 2500);
   }, []);
+
+  const runUser = useCallback(() => {
+    userRun.current = true;
+    runNow(true);
+  }, [runNow]);
 
   const filesSig = project?.files;
   useEffect(() => {
@@ -477,6 +504,11 @@ export default function App() {
             const a = d.args?.[0];
             const message = a?.t === "err" ? `${a.n}: ${a.v}` : a?.t === "str" ? a.v : "Erro";
             if (f) setErrorLine({ fileId: f.id, line: d.src.line, col: d.src.col, message });
+          }
+          if (d.level === "error") {
+            runStats.current.errors++;
+            const a0 = d.args?.[0];
+            emitRef.current("preview:error", a0?.t === "err" ? `${a0.n}: ${a0.v}` : a0?.t === "str" ? a0.v : "erro");
           }
           break;
         }
@@ -538,6 +570,14 @@ export default function App() {
           }
           setBusy(false);
           setLoadMs(d.ms ?? null);
+          {
+            // sucesso: sem erros pouco depois de carregar, numa execução pedida ou que resolveu erros
+            const seq = runStats.current.seq;
+            setTimeout(() => {
+              const rs = runStats.current;
+              if (rs.seq === seq && rs.errors === 0 && (rs.manual || rs.prevErrors > 0)) emitRef.current("preview:success");
+            }, 1200);
+          }
           break;
         case "ext-storage": {
           if (!p) break;
@@ -578,6 +618,7 @@ export default function App() {
 
   const openFile = useCallback(
     (id: string) => {
+      if (wsRef.current?.projects[wsRef.current.currentId].activeFile !== id) emitRef.current("file:opened");
       updateProject((p) => ({ ...p, activeFile: id, openTabs: p.openTabs.includes(id) ? p.openTabs : [...p.openTabs, id] }), false);
       const f = wsRef.current?.projects[wsRef.current.currentId].files.find((x) => x.id === id);
       if (f?.kind === "html") setPreviewPage(id);
@@ -608,6 +649,7 @@ export default function App() {
 
   const onChange = useCallback(
     (id: string, content: string) => {
+      emitRef.current("editor:typing");
       updateProject((p) => {
         const f = p.files.find((x) => x.id === id);
         if (!f || f.content === content) return p;
@@ -626,6 +668,7 @@ export default function App() {
     if (kind === "asset") return void toast.error("Para imagens e mídias, use “Adicionar arquivos”");
     const ext = name.split(".").pop()?.toLowerCase() ?? "";
     const f = makeFile(name, STARTERS[ext] ?? STARTERS[kind] ?? "");
+    emitRef.current("file:created");
     updateProject((p) => ({ ...p, files: [...p.files, f], openTabs: [...p.openTabs, f.id], activeFile: f.id, entry: p.entry || (kind === "html" ? f.id : p.entry) }));
     if (kind === "html") setPreviewPage(f.id);
   };
@@ -789,6 +832,7 @@ export default function App() {
 
   const confirmImport = (mode: ImportMode, opts: { name: string; dir: string }) => {
     if (!pendingImport || !ws) return;
+    emitRef.current("project:imported");
     const incoming = pendingImport.files;
     setPendingImport(null);
     if (mode !== "new") return addFiles(incoming, opts.dir, mode);
@@ -889,6 +933,8 @@ export default function App() {
   };
 
   /* ---------------- inspetor ---------------- */
+  const debugging = !!settings?.console && (ui.bottom === "elements" || insp.picking);
+  useEffect(() => emitRef.current(debugging ? "debug:start" : "debug:stop"), [debugging]);
   uiBottomRef.current = ui.bottom;
   const inspCmd = (c: Record<string, unknown>) => {
     if (c.op === "pick") setInsp((st) => ({ ...st, picking: true, error: null }));
@@ -1151,6 +1197,7 @@ export default function App() {
     const version = typeof rep.manifest?.version === "string" ? "-" + rep.manifest.version.replace(/[^\w.]+/g, "") : "";
     const name = `${slug(project.name)}${version}.zip`;
     download(name, new Blob([zipped as BlobPart], { type: "application/zip" }));
+    exported();
     setExtExport(false);
     toast.success("Extensão exportada", {
       description: `${name}: descompacte e, em chrome://extensions (modo do desenvolvedor), use "Carregar sem compactação".${excluded.length ? ` Ficaram fora: ${excluded.join(", ")}.` : ""}`,
@@ -1309,8 +1356,15 @@ export default function App() {
   };
 
   /* ---------------- exportação ---------------- */
+  /** primeira exportação: um marco cosmético (flor do Pólen, estrela da Lúmen) */
+  const exported = () => {
+    emitRef.current("project:exported");
+    if (settings && !settings.companionMarks.firstExport) updateSettings({ companionMarks: { ...settings.companionMarks, firstExport: Date.now() } });
+  };
+
   const exportHtml = () => {
     if (!project || !settings) return;
+    exported();
     const r = buildPage(project, previewPage, { console: false, autoInject: settings.autoInject });
     const name = r.page ? baseName(r.page.name).replace(/\.html?$/i, "") : "index";
     download(`${slug(project.name)}${name !== "index" ? "-" + name : ""}.html`, new Blob([r.html], { type: "text/html" }));
@@ -1325,6 +1379,7 @@ export default function App() {
     const zipped = zipSync(entries, { level: 6 });
     download(`${slug(project.name)}.zip`, new Blob([zipped as BlobPart], { type: "application/zip" }));
     toast.success("Projeto exportado", { description: `${project.files.length} arquivos em ${slug(project.name)}.zip` });
+    exported();
   };
 
   const backup = () => {
@@ -1521,7 +1576,7 @@ export default function App() {
       setPalette("all");
     } else if (mod && (k === "s" || k === "enter")) {
       e.preventDefault();
-      if (!inEditor) runNow(true);
+      if (!inEditor) runUser();
     } else if (mod && k === "b") {
       e.preventDefault();
       updateSettings({ sidebar: !settings.sidebar });
@@ -1530,7 +1585,7 @@ export default function App() {
       updateSettings({ console: !settings.console });
     } else if (mod && k === "r" && !e.shiftKey) {
       e.preventDefault();
-      runNow(true);
+      runUser();
     } else if (mod && k === "o") {
       e.preventDefault();
       pickFiles(null);
@@ -1608,8 +1663,9 @@ export default function App() {
   /* ---------------- comandos da paleta ---------------- */
   const commands: Cmd[] = settings
     ? [
-        { id: "run", group: "Executar", label: "Executar agora", icon: "play_arrow", shortcut: "Ctrl ↵", run: () => runNow(true) },
+        { id: "run", group: "Executar", label: "Executar agora", icon: "play_arrow", shortcut: "Ctrl ↵", run: () => runUser() },
         { id: "net", group: "Rede", label: "Mostrar painel de rede", icon: "lan", run: showNetwork },
+        { id: "music", group: "Foco", label: music.state === "playing" ? "Pausar a música de foco" : "Tocar a música de foco", icon: "headphones", run: music.toggle },
         { id: "insp", group: "Inspetor", label: "Selecionar elemento no preview", icon: "arrow_selector_tool", shortcut: "Ctrl Shift C", run: startPick },
         { id: "insp-show", group: "Inspetor", label: "Mostrar elementos", icon: "account_tree", run: showElements },
         { id: "net-req", group: "Rede", label: "Nova requisição (console de APIs)", icon: "send", run: () => setReqDialog({ open: true }) },
@@ -1698,6 +1754,20 @@ export default function App() {
   }
 
   const htmlPages = project.files.filter((f) => f.kind === "html");
+  const companionEl = (place: "rail" | "top") =>
+    settings.companion !== "nenhum" && settings.companionPlace === place ? (
+      <Companion
+        id={settings.companion}
+        pose={comp.pose}
+        level={settings.companionLevel}
+        bloom={!!settings.companionMarks.firstExport}
+        reactions={comp.reactions}
+        size={place === "rail" ? 60 : 44}
+        place={place}
+        className={pageHidden ? "pzc-paused" : undefined}
+        onClick={() => comp.emit("mascot:clicked")}
+      />
+    ) : null;
   const showManifestForm = isExt && activeFile?.name === MANIFEST && manifestMode === "form";
   const extRole = isExt && built.page && extReport?.manifest ? pageRole(extReport.manifest, built.page.name) : null;
   const showEditor = settings.layout !== "preview";
@@ -1791,7 +1861,7 @@ export default function App() {
               errorLine={errorLine}
               onChange={onChange}
               onCursor={setCursor}
-              onRun={() => runNow(true)}
+              onRun={() => runUser()}
               onJump={jumpLoc}
               onOpenFile={(f) => openFile(f.id)}
               onToast={(m) => toast(m)}
@@ -1953,6 +2023,7 @@ export default function App() {
           onSelect={selectPanel}
           onSettings={() => setSettingsOpen(true)}
           onHelp={() => setShortcutsOpen(true)}
+          companion={companionEl("rail")}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -1961,7 +2032,7 @@ export default function App() {
             autoRun={settings.autoRun}
             layout={settings.layout}
             busy={busy}
-            onRun={() => runNow(true)}
+            onRun={() => runUser()}
             onAutoRun={() => updateSettings({ autoRun: !settings.autoRun })}
             onLayout={(l) => updateSettings({ layout: l })}
             onNew={createProject}
@@ -1973,6 +2044,18 @@ export default function App() {
             onExportHtml={exportHtml}
             onExportZip={exportZip}
             onPalette={() => setPalette("all")}
+            companion={companionEl("top")}
+            music={
+              <MusicButton
+                state={music.state}
+                error={music.error}
+                volume={settings.musicVolume}
+                autoPause={settings.musicAutoPause}
+                onToggle={music.toggle}
+                onVolume={(v) => updateSettings({ musicVolume: v })}
+                onAutoPause={(v) => updateSettings({ musicAutoPause: v })}
+              />
+            }
           />
 
           <div className="flex min-h-0 flex-1 pr-2">

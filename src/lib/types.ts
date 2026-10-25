@@ -52,7 +52,19 @@ export interface Settings {
   localFolders: boolean;
   /** padrões ignorados ao ler pastas, separados por vírgula */
   folderIgnore: string;
+  /** companheiro: Pólen, Lúmen ou nenhum */
+  companion: CompanionId;
+  companionLevel: CompanionLevel;
+  companionPlace: "rail" | "top";
+  /** marcos locais (só cosméticos): quando aconteceram pela primeira vez */
+  companionMarks: { firstExport?: number };
+  /** música de foco: volume de 0 a 1 e pausa automática com a aba escondida */
+  musicVolume: number;
+  musicAutoPause: boolean;
 }
+
+export type CompanionId = "polen" | "lumen" | "nenhum";
+export type CompanionLevel = "foco" | "discreto" | "vivo";
 
 export interface HistorySettings {
   /** segundos sem editar até o snapshot automático; 0 desliga */
