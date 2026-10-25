@@ -78,3 +78,21 @@ export function PanelHeader({ title, children }: { title: string; children?: Rea
     </div>
   );
 }
+
+/** Slider no estilo do app: a parte preenchida da trilha acompanha o valor. */
+export function Range({ value, min = 0, max = 100, step, onChange, className, ...rest }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value" | "type"> & { value: number; min?: number; max?: number; onChange(v: number): void }) {
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(+e.target.value)}
+      className={className}
+      style={{ ["--pz-fill" as string]: `${Math.max(0, Math.min(100, pct))}%` }}
+      {...rest}
+    />
+  );
+}

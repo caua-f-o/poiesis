@@ -9,12 +9,12 @@ icon = (ROOT / "design/icon.svg").read_text()
 def data_uri(rel):
     return "data:font/woff2;base64," + base64.b64encode((ROOT / rel).read_bytes()).decode()
 
-serif = data_uri("node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-italic.woff2")
+serif = data_uri("src/assets/fonts/lavishly-yours.woff2")  # fonte dos títulos (OFL)
 sans = data_uri("node_modules/@fontsource-variable/roboto-flex/files/roboto-flex-latin-wght-normal.woff2")
 
 def page(w, h, scale):
     return f"""<!doctype html><html><head><style>
-@font-face {{ font-family: S; src: url({serif}); font-style: italic; }}
+@font-face {{ font-family: S; src: url({serif}); }}
 @font-face {{ font-family: R; src: url({sans}); font-weight: 100 1000; }}
 html,body {{ margin:0; width:{w}px; height:{h}px; overflow:hidden; }}
 body {{ background: radial-gradient(120% 140% at 18% 30%, #2a2419 0%, #14120e 45%, #0a0908 100%);
@@ -24,7 +24,7 @@ body::before {{ content:""; position:absolute; inset:0; opacity:.5;
   -webkit-mask-image: radial-gradient(60% 80% at 80% 50%, #000, transparent); }}
 .i svg {{ width:{120*scale}px; height:{120*scale}px; display:block; filter: drop-shadow(0 {10*scale}px {30*scale}px rgba(0,0,0,.55)); }}
 .t {{ position:relative; }}
-h1 {{ margin:0; font:italic 400 {74*scale}px/1 S; letter-spacing:-.01em; color:#f3ead6; }}
+h1 {{ margin:0; font:400 {92*scale}px/1 S; color:#f3ead6; text-shadow: 0 0 {18*scale}px rgba(246,196,97,.35); }}
 p {{ margin:{10*scale}px 0 0; font-size:{15.5*scale}px; letter-spacing:.22em; text-transform:uppercase; color:#e2bb72; font-weight:500; }}
 </style></head><body><div class="i">{icon}</div><div class="t"><h1>Poiesis</h1><p>Do código à forma</p></div></body></html>"""
 

@@ -36,6 +36,13 @@ Componentes de interface em src/components/ui/
 Baseados em shadcn/ui — https://github.com/shadcn-ui/ui
 Licença: MIT — Copyright (c) 2023 shadcn
 (modificados e reestilizados para Material 3)
+
+================================================================================
+Fonte Lavishly Yours (src/assets/fonts/lavishly-yours.woff2, convertida do TTF original)
+Copyright 2014-2021 The Lavishly Yours Project Authors (https://github.com/googlefonts/lavishly-yours)
+Licença: SIL Open Font License 1.1 — texto completo abaixo.
+
+${fs.readFileSync("src/assets/fonts/OFL-LavishlyYours.txt", "utf8").trim()}
 `;
 
 function pkgRoot(id: string): string | null {

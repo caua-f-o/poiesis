@@ -76,7 +76,7 @@ export function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[520px] gap-0 p-0">
         <DialogHeader className="px-6 pb-2 pt-6">
-          <DialogTitle className="font-display text-[28px] italic">Preferências</DialogTitle>
+          <DialogTitle>Preferências</DialogTitle>
           <DialogDescription>Valem para todos os projetos.</DialogDescription>
         </DialogHeader>
         <div className="max-h-[62vh] divide-y divide-md-outline-v overflow-y-auto px-6">
@@ -345,7 +345,7 @@ export function ImportDialog({
       <DialogContent className="max-w-[540px]">
         <DialogHeader>
           <Icon name="move_to_inbox" size={26} className="mb-1 text-md-primary" />
-          <DialogTitle className="font-display text-[28px] italic">Trazer para dentro</DialogTitle>
+          <DialogTitle>Trazer para dentro</DialogTitle>
           <DialogDescription>
             {files?.length} {files?.length === 1 ? "arquivo pronto" : "arquivos prontos"}. As ligações entre HTML, CSS e JS são resolvidas automaticamente.
           </DialogDescription>
@@ -456,7 +456,7 @@ export function RenameDialog({
         <DialogHeader>
           <Icon name="edit_note" size={26} className="mb-1 text-md-primary" />
           <DialogTitle>
-            Renomear <span className="font-code text-[20px] text-md-primary">{target?.label}</span>
+            Renomear <span className="font-code text-[19px] text-md-primary">{target?.label}</span>
           </DialogTitle>
           <DialogDescription>
             Atualiza {target?.count ?? 0} ocorrência{target?.count === 1 ? "" : "s"} em HTML, CSS e JavaScript de todo o projeto.
@@ -526,7 +526,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[620px]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[28px] italic">Atalhos</DialogTitle>
+          <DialogTitle>Atalhos</DialogTitle>
         </DialogHeader>
         <div className="grid gap-6 sm:grid-cols-2">
           {SHORTCUTS.map(([group, list]) => (

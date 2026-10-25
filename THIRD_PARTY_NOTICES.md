@@ -17,6 +17,7 @@ O pacote da extensão também inclui componentes de terceiros, cada um sob a sua
 | --- | --- |
 | [Material Symbols](https://github.com/google/material-design-icons) (Google), inteiros e no recorte usado na interface | Apache-2.0 |
 | Roboto Flex, JetBrains Mono e Instrument Serif (via Fontsource) | SIL Open Font License 1.1 |
+| [Lavishly Yours](https://github.com/googlefonts/lavishly-yours), fonte dos títulos (`src/assets/fonts/`, com o texto da licença) | SIL Open Font License 1.1 |
 
 ## Bibliotecas incluídas no pacote
 

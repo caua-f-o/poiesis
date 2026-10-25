@@ -515,7 +515,7 @@ export function CompareDialog({
       <DialogContent className="flex h-[min(88vh,860px)] max-w-[min(1240px,96vw)] flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-md-outline-v py-3 pl-5 pr-16">
           <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-[17px]">{revision ? revision.label || REASON_LABEL[revision.reason] : ""}</DialogTitle>
+            <DialogTitle className="truncate font-sans text-[17px] leading-6">{revision ? revision.label || REASON_LABEL[revision.reason] : ""}</DialogTitle>
             <DialogDescription className="text-[12px]">
               {revision && new Date(revision.time).toLocaleString("pt-BR", { dateStyle: "long", timeStyle: "short" })}
               {revision?.note ? ` · ${revision.note}` : ""}

@@ -4,6 +4,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* fonte dos títulos: Lavishly Yours (SIL OFL 1.1, veja src/assets/fonts/OFL-LavishlyYours.txt) */
+@font-face {
+  font-family: "Lavishly Yours";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lavishly-yours.woff2") format("woff2");
+}
+
 @font-face {
   font-family: "Material Symbols Rounded";
   font-style: normal;
@@ -159,6 +168,13 @@
     font-variation-settings: "FILL" 1;
   }
 
+  /* títulos: caligrafia (sem grego — "ποίησις" cai na serifada) */
+  .font-title {
+    font-family: "Lavishly Yours", var(--font-display);
+    font-style: normal;
+    font-weight: 400;
+    letter-spacing: 0.005em;
+  }
   .font-display {
     font-family: var(--font-display);
   }
@@ -955,10 +971,6 @@
 @keyframes pzc-dots { 0%, 60%, 100% { opacity: 0.35; } 30% { opacity: 1; } }
 @keyframes pzc-orbit { to { transform: rotate(360deg); } }
 @keyframes pzc-z { 0% { transform: translate(0, 2px); opacity: 0; } 30% { opacity: 0.9; } 100% { transform: translate(2px, -4px); opacity: 0; } }
-/* o companheiro some da barra lateral quando falta altura (nunca empurra os botões) */
-@media (max-height: 700px) {
-  .pzc-rail { display: none; }
-}
 /* equalizador do botão de música */
 .pz-eq { position: absolute; bottom: 5px; right: 6px; display: flex; gap: 1px; align-items: flex-end; height: 7px; }
 .pz-eq i { width: 2px; background: var(--md-primary); border-radius: 1px; animation: pz-eq 1.1s ease-in-out infinite; }
@@ -966,3 +978,87 @@
 .pz-eq i:nth-child(3) { animation-delay: -0.8s; }
 @keyframes pz-eq { 0%, 100% { height: 2px; } 50% { height: 7px; } }
 @media (prefers-reduced-motion: reduce) { .pz-eq i { animation: none; height: 5px; } }
+
+/* ======================= controles de formulário no estilo do app =======================
+ * Caixas de seleção, rádios e sliders nativos herdam as cores do tema (Material 3).
+ * :where() deixa a especificidade zero: classes utilitárias (tamanho etc.) continuam valendo. */
+:where(input[type="checkbox"], input[type="radio"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 2px solid var(--md-on-surface-variant);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: -3px;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+:where(input[type="radio"]) { border-radius: 50%; }
+:where(input[type="checkbox"], input[type="radio"]):hover { box-shadow: 0 0 0 6px color-mix(in oklab, var(--md-on-surface) 8%, transparent); }
+:where(input[type="checkbox"], input[type="radio"]):focus-visible { outline: none; box-shadow: 0 0 0 6px color-mix(in oklab, var(--md-primary) 22%, transparent); }
+:where(input[type="checkbox"]):checked,
+:where(input[type="checkbox"]):indeterminate { background: var(--md-primary); border-color: var(--md-primary); }
+:where(input[type="checkbox"])::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background: var(--md-on-primary);
+  transform: scale(0);
+  transition: transform 0.12s ease-out;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4.5 12.5l5 5L19.5 7' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4.5 12.5l5 5L19.5 7' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+}
+:where(input[type="checkbox"]):checked::before { transform: scale(1); }
+:where(input[type="radio"]):checked { border-color: var(--md-primary); }
+:where(input[type="radio"])::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--md-primary);
+  transform: scale(0);
+  transition: transform 0.12s ease-out;
+}
+:where(input[type="radio"]):checked::before { transform: scale(1); }
+:where(input[type="checkbox"], input[type="radio"]):disabled { opacity: 0.38; cursor: default; box-shadow: none; }
+
+/* sliders: trilha com a parte preenchida na cor primária (--pz-fill vem do componente Range) */
+:where(input[type="range"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+  --pz-fill: 50%;
+}
+:where(input[type="range"])::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--md-primary) 0 var(--pz-fill), var(--md-surface-container-highest) var(--pz-fill) 100%);
+}
+:where(input[type="range"])::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--md-primary);
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+:where(input[type="range"]):hover::-webkit-slider-thumb { box-shadow: 0 0 0 8px color-mix(in oklab, var(--md-primary) 16%, transparent); }
+:where(input[type="range"]):focus-visible { outline: none; }
+:where(input[type="range"]):focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 8px color-mix(in oklab, var(--md-primary) 28%, transparent); }
+:where(input[type="range"]):active::-webkit-slider-thumb { transform: scale(1.12); }
+:where(input[type="range"]):disabled { opacity: 0.38; cursor: default; }
+
+/* seletor de cor: amostra redonda */
+:where(input[type="color"]) { appearance: none; -webkit-appearance: none; width: 28px; height: 28px; padding: 0; border: 2px solid var(--md-outline-variant); border-radius: 50%; background: none; cursor: pointer; }
+:where(input[type="color"])::-webkit-color-swatch-wrapper { padding: 0; }
+:where(input[type="color"])::-webkit-color-swatch { border: none; border-radius: 50%; }

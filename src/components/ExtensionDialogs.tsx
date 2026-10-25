@@ -10,6 +10,7 @@ import type { ExtProblem } from "@/lib/ext/validate";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Icon } from "./Icon";
 import { SEV_ICON, SEV_TONE } from "./ManifestForm";
+import { Range } from "./md";
 import { cn } from "@/lib/utils";
 
 /* ---------------- nova extensão ---------------- */
@@ -175,7 +176,7 @@ export function IconsDialog({ open, onOpenChange, images, onApply }: { open: boo
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1">
               <span className="text-[12px] font-medium text-md-on-variant">Margem: {Math.round(opts.padding * 100)}%</span>
-              <input type="range" min={0} max={30} value={Math.round(opts.padding * 100)} aria-label="Margem" onChange={(e) => setOpts({ ...opts, padding: +e.target.value / 100 })} />
+              <Range min={0} max={30} value={Math.round(opts.padding * 100)} aria-label="Margem" onChange={(v) => setOpts({ ...opts, padding: v / 100 })} />
             </label>
             <div className="grid gap-1">
               <label className="flex items-center gap-2 text-[12px] font-medium text-md-on-variant">
@@ -184,7 +185,7 @@ export function IconsDialog({ open, onOpenChange, images, onApply }: { open: boo
               </label>
               <label className="grid gap-1 text-[12px] text-md-on-variant">
                 Arredondamento: {Math.round(opts.radius * 100)}%
-                <input type="range" min={0} max={50} value={Math.round(opts.radius * 100)} disabled={!opts.background} aria-label="Arredondamento" onChange={(e) => setOpts({ ...opts, radius: +e.target.value / 100 })} />
+                <Range min={0} max={50} value={Math.round(opts.radius * 100)} disabled={!opts.background} aria-label="Arredondamento" onChange={(v) => setOpts({ ...opts, radius: v / 100 })} />
               </label>
             </div>
           </div>

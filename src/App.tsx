@@ -281,6 +281,14 @@ export default function App() {
   const music = useFocusMusic(settings?.musicVolume ?? 0.45, settings?.musicAutoPause ?? true);
   useEffect(() => emitRef.current(music.state === "playing" ? "focus:on" : "focus:off"), [music.state]);
   const [pageHidden, setPageHidden] = useState(false);
+  /** janela baixa: a barra lateral não tem espaço; o companheiro vai para a barra superior */
+  const [shortWin, setShortWin] = useState(() => window.matchMedia("(max-height: 680px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-height: 680px)");
+    const on = () => setShortWin(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   useEffect(() => {
     const on = () => setPageHidden(document.hidden);
     document.addEventListener("visibilitychange", on);
@@ -1754,8 +1762,9 @@ export default function App() {
   }
 
   const htmlPages = project.files.filter((f) => f.kind === "html");
+  const companionPlace = settings.companionPlace === "rail" && !shortWin ? "rail" : "top";
   const companionEl = (place: "rail" | "top") =>
-    settings.companion !== "nenhum" && settings.companionPlace === place ? (
+    settings.companion !== "nenhum" && companionPlace === place ? (
       <Companion
         id={settings.companion}
         pose={comp.pose}
@@ -1900,7 +1909,7 @@ export default function App() {
         {!activeFile && (
           <div className="flex h-full flex-col items-center justify-center gap-5 text-md-on-variant">
             <Logo size={64} className="opacity-50" />
-            <div className="font-display text-[30px] italic text-md-on-surface">O que vem a ser?</div>
+            <div className="font-title text-[44px] leading-tight text-md-on-surface">O que vem a ser?</div>
             <div className="grid gap-2 text-[12.5px]">
               {[
                 ["Abrir arquivo", "Ctrl P"],
@@ -2207,7 +2216,7 @@ export default function App() {
           <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-[var(--md-scrim)]">
             <div className="rise flex flex-col items-center gap-3 rounded-[28px] bg-md-high px-14 py-10 shadow-[var(--md-elev-3)]">
               <Icon name="move_to_inbox" size={44} className="text-md-primary" />
-              <div className="font-display text-[30px] italic text-md-on-surface">Solte para dar forma</div>
+              <div className="font-title text-[44px] leading-tight text-md-on-surface">Solte para dar forma</div>
               <div className="text-[12.5px] text-md-on-variant">HTML, CSS, JS, imagens ou uma pasta inteira — ou solte numa pasta da barra lateral</div>
             </div>
           </div>

@@ -56,7 +56,7 @@ export function TopAppBar(p: Props) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 pr-3">
       <div className="flex min-w-0 items-baseline gap-3 pl-1">
-        <span className="font-display text-[24px] italic leading-none tracking-[-0.01em] text-md-on-surface">Poiesis</span>
+        <span className="font-title text-[34px] leading-none text-md-on-surface">Poiesis</span>
         {editing ? (
           <input
             autoFocus

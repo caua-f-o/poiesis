@@ -1,24 +1,71 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Chrome Web Store: arte de 96x96 com 16 px de margem transparente -->
+  <g transform="translate(16 16) scale(0.75)">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#221f19"/>
-      <stop offset="1" stop-color="#0c0b09"/>
+      <stop offset="0" stop-color="#231e17"/>
+      <stop offset="1" stop-color="#0b0a08"/>
     </linearGradient>
-    <linearGradient id="gold" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#b8873e"/>
-      <stop offset=".6" stop-color="#e2bb72"/>
-      <stop offset="1" stop-color="#f7e2b0"/>
+    <radialGradient id="warm" cx="50%" cy="46%" r="55%">
+      <stop offset="0" stop-color="#f6c461" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#f6c461" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe3a0"/>
+      <stop offset=".5" stop-color="#c8913e"/>
+      <stop offset="1" stop-color="#f6c461"/>
     </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd98a"/>
+      <stop offset=".5" stop-color="#f6b94f"/>
+      <stop offset="1" stop-color="#e89a34"/>
+    </linearGradient>
+    <radialGradient id="star" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fffdf2"/>
+      <stop offset=".45" stop-color="#ffe7a3"/>
+      <stop offset="1" stop-color="#f2b24a"/>
+    </radialGradient>
+    <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffd780" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#ffd780" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="leaf" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#55703f"/>
+      <stop offset=".6" stop-color="#8ba466"/>
+      <stop offset="1" stop-color="#c9d59c"/>
+    </linearGradient>
+    <linearGradient id="stem" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#5f7b45"/>
+      <stop offset="1" stop-color="#96b06f"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <!-- Web Store: arte 96x96 + 16 px de margem transparente -->
-  <g transform="translate(12.8 12.8) scale(.8)">
-  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#bg)"/>
-  <rect x="4.75" y="4.75" width="118.5" height="118.5" rx="29.25" fill="none" stroke="#e2bb72" stroke-opacity=".22" stroke-width="1.5"/>
-  <path d="M41 45 L23 64 L41 83" fill="none" stroke="#efe9dc" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M87 45 L105 64 L87 83" fill="none" stroke="#efe9dc" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M55 96 C 59 80, 64 66, 69 52" fill="none" stroke="url(#gold)" stroke-width="7.5" stroke-linecap="round"/>
-  <path d="M60.5 74 C 50 69, 47 60, 49 52 C 57 55, 62.5 63, 60.5 74 Z" fill="url(#gold)" opacity=".85"/>
-  <path d="M68 54 C 61 47, 63 35, 75 27 C 80 38, 78 49, 68 54 Z" fill="url(#gold)"/>
-  <path d="M90 20 L92 26 L98 28 L92 30 L90 36 L88 30 L82 28 L88 26 Z" fill="#f7e2b0"/>
-</g>
+  <!-- placa escura com borda dourada -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#warm)"/>
+  <rect x="5.5" y="5.5" width="117" height="117" rx="26.5" fill="none" stroke="url(#rim)" stroke-width="2" filter="url(#soft)" opacity=".75"/>
+  <!-- < > -->
+  <g fill="none" stroke="url(#gold)" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <path d="M40 58 L24 75 L40 92"/>
+    <path d="M88 58 L104 75 L88 92"/>
+  </g>
+  <!-- estrela -->
+  <circle cx="64" cy="45" r="21" fill="url(#starGlow)"/>
+  <path d="M64 24 Q65.9 43 78 45 Q65.9 47 64 67 Q62.1 47 50 45 Q62.1 43 64 24 Z" fill="url(#star)" filter="url(#soft)"/>
+  <!-- broto -->
+  <g filter="url(#soft)">
+    <path d="M64.2 114 C 63.4 105, 63.3 96, 64.2 86" fill="none" stroke="url(#stem)" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M63.4 99 C 53 97, 46 88, 44.5 71.5 C 55 76, 62 86, 63.4 99 Z" fill="url(#leaf)" opacity=".95"/>
+    <path d="M64.8 96 C 75 94, 82.5 85, 84 69.5 C 73.5 74, 66.5 83.5, 64.8 96 Z" fill="url(#leaf)" opacity=".95"/>
+    <path d="M62 96 C 55.5 91.5, 50 85, 46.5 74.5" fill="none" stroke="#eef6cf" stroke-width=".9" stroke-linecap="round" opacity=".5"/>
+    <path d="M66.2 93 C 72.5 88.5, 78.5 82, 82 72.5" fill="none" stroke="#eef6cf" stroke-width=".9" stroke-linecap="round" opacity=".5"/>
+  </g>
+  </g>
 </svg>

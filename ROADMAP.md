@@ -250,7 +250,7 @@ A personalidade, os princípios e os estados estão em [`docs/personalidade-pole
 - **Máquina de estados compartilhada:** estados de base (tranquilo; repouso de olhos fechados no nível Foco ou com a música tocando; acompanhando a digitação; pensando no inspetor; dormindo depois de 5 min parado) e reações curtas (0,8–1,5 s): curiosidade (arquivo criado ou aberto, importação), comemoração (execução sem erros pedida por você, ou que resolveu erros; exportação), dúvida (erro no preview, **uma vez por ocorrência**), carinho (clique).
 - **Prioridade e limites:** foco e movimento reduzido acima de tudo; erros antes de ações; intervalo mínimo entre reações; digitação agrupada (não reage a cada tecla).
 - **Níveis:** Foco (parado, sem partículas), Discreto (padrão: respira e reage ao que importa) e Vivo (acompanha a digitação, folhas e chamas em movimento). Escolha entre Pólen, Lúmen ou nenhum.
-- **Posição:** barra lateral (padrão, no espaço livre; some se faltar altura) ou barra superior. Nunca na frente do código nem do preview, e só a área do companheiro recebe cliques; o teclado nunca é capturado.
+- **Posição:** barra lateral (padrão, no espaço livre) ou barra superior; em janelas baixas (até 680 px de altura) ele passa sozinho para a barra superior, em vez de sumir. Nunca na frente do código nem do preview, e só a área do companheiro recebe cliques; o teclado nunca é capturado.
 - **Marco cosmético:** na primeira exportação, Pólen ganha uma flor e Lúmen uma estrela que orbita o halo. Fica nas preferências deste navegador e pode ser redefinido. Sem tarefas, punições ou rankings.
 - Respeita `prefers-reduced-motion` (só troca de pose), congela as animações com a aba escondida e não usa rede nem permissões.
 

@@ -4,7 +4,7 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TRACK, type MusicState } from "@/lib/useFocusMusic";
 import { Icon } from "./Icon";
-import { Tip } from "./md";
+import { Range, Tip } from "./md";
 import { cn } from "@/lib/utils";
 
 export function MusicButton({
@@ -52,7 +52,7 @@ export function MusicButton({
         </div>
         <label className="mt-4 flex items-center gap-2 text-[12px] text-md-on-variant">
           <Icon name={volume === 0 ? "volume_off" : volume < 0.5 ? "volume_down" : "volume_up"} size={18} />
-          <input type="range" min={0} max={100} value={Math.round(volume * 100)} onChange={(e) => onVolume(+e.target.value / 100)} className="flex-1" aria-label="Volume da música" />
+          <Range min={0} max={100} value={Math.round(volume * 100)} onChange={(v) => onVolume(v / 100)} className="flex-1" aria-label="Volume da música" />
           <span className="w-8 text-right tabular-nums">{Math.round(volume * 100)}</span>
         </label>
         <label className="mt-3 flex items-center gap-2 text-[12.5px] text-md-on-surface">

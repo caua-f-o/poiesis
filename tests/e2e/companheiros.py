@@ -151,4 +151,12 @@ close()
 open_file("index.html")
 check("companheiro não captura o teclado", page.evaluate("document.activeElement && document.activeElement.closest('[data-pz=companion]') === null"))
 
+# janela baixa (notebook): o companheiro não some, vai para a barra superior
+page.set_viewport_size({"width": 1366, "height": 640}); page.wait_for_timeout(500)
+b = comp().bounding_box() if comp().count() else None
+check("janela baixa: companheiro continua visível, na barra superior", b is not None and b["y"] < 56 and b["height"] > 30, b)
+page.set_viewport_size({"width": 1440, "height": 900}); page.wait_for_timeout(500)
+b = comp().bounding_box()
+check("janela alta: volta para a barra lateral", b["x"] < 80 and b["y"] > 300, b)
+
 report(errs, ignore=["addEventListener", "dataset", "ops do teste"])

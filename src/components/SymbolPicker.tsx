@@ -208,7 +208,7 @@ export function SymbolPicker({ open, onOpenChange, lang, current, onPick, onCopy
         {/* cabeçalho */}
         <div className="flex flex-wrap items-center gap-3 border-b border-md-outline-v px-6 pb-4 pr-16 pt-5">
           <div className="mr-2">
-            <DialogTitle className="font-display text-[26px] italic leading-7">Material Symbols</DialogTitle>
+            <DialogTitle className="leading-8">Material Symbols</DialogTitle>
             <DialogDescription className="text-[12px]">
               {all.length ? `${all.length.toLocaleString("pt-BR")} ícones · busque em português ou inglês` : "carregando…"}
             </DialogDescription>
