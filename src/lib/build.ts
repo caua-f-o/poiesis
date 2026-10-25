@@ -27,6 +27,8 @@ export interface ExtPreview {
   messages: Record<string, unknown>;
   /** namespace chrome.X → permissão exigida */
   apiPerms: Record<string, string>;
+  /** abas fictícias e respostas simuladas (poiesis.chrome.json) */
+  fixtures?: { tabs: unknown[]; messages: unknown[] };
 }
 
 export interface BuildResult {

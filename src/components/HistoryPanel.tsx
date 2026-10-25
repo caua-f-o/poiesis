@@ -49,6 +49,8 @@ const REASON_ICON: Record<Reason, string> = {
   "pre-external": "drive_folder_upload",
   conflict: "warning",
   "pre-ext": "extension",
+  "pre-inspect": "arrow_selector_tool",
+  "pre-mocks": "dns",
 };
 
 const time = (t: number) => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });

@@ -14,7 +14,7 @@ Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos m
 | **3 — Network MVP** (módulo 4) | Captura de `fetch`/XHR do preview, mocks locais, latência e erros simulados | ✅ 2.6.0 |
 | **4 — Inspetor MVP** (módulo 1) | Seleção no preview, árvore DOM, estilos computados, box model, edição temporária | ✅ 2.7.0 |
 | **5 — Extension Studio MVP** (módulo 5) | Templates MV3, editor de manifesto sincronizado, validação e exportação em ZIP | ✅ 2.8.0 |
-| **6 — Integração avançada** | Edição persistente pelo inspetor (com mapeamento seguro), fixtures, mocks de `chrome.*`, snapshots coordenados entre módulos | Planejado |
+| **6 — Integração avançada** | Edição persistente pelo inspetor (com mapeamento seguro), fixtures, mocks de `chrome.*`, snapshots coordenados entre módulos | ✅ 2.9.0 |
 | **7 — Companhia e foco** (módulos 8 e 9) | Mascotes Lúmen e Pólen; botão de música de fundo para foco | Planejado |
 
 O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runtime do preview já tem. É incremento, não reescrita, e já valida a ponte tipada que o Inspetor também vai usar.
@@ -47,6 +47,32 @@ O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runt
 - Filtro de "segredos conhecidos" (por exemplo `.env`) nos snapshots: hoje o limite por tamanho de arquivo cobre o caso dos binários grandes.
 - Recuperar um projeto excluído direto pelo histórico: hoje o histórico dele fica guardado até ser limpo, mas não há botão para recriar o projeto.
 
+## O que já existe (fase 6)
+
+**Integração entre os módulos** (`src/lib/inspect.ts`, `src/lib/ext/fixtures.ts`, `src/components/ChromeSimDialog.tsx`):
+
+- **Inspetor → código ("Aplicar no código"):** as mudanças temporárias viram edição de verdade nos arquivos, só onde o lugar é inequívoco:
+  - declaração de regra: a regra com o mesmo seletor **e o mesmo contexto** (`@media`, `@supports`, `@layer`, `@container`) precisa aparecer exatamente uma vez, no `.css` ou num `<style>` do HTML. O valor é trocado no lugar; declaração desligada vira comentário; propriedade nova entra no fim do bloco com a indentação dele;
+  - estilo do elemento: o atributo `style` é alterado na tag certa do HTML-fonte (pelo mesmo caminho do "Ver no código"). Elemento criado por script não tem lugar no código e não é gravado;
+  - o valor gravado é o que você digitou (não a forma normalizada pelo navegador), e valores com `;`, `{`, `}` ou comentários são recusados;
+  - regra repetida, de folha externa, de `@import` ou criada por script: nada é gravado; o aviso explica o motivo e oferece copiar o CSS. Nunca finge que gravou;
+  - antes de gravar, uma versão vai para o histórico ("Antes de aplicar do inspetor") e o aviso tem "Desfazer".
+- **Simulação do chrome.* com fixtures** (`poiesis.chrome.json`, editável num diálogo ou no JSON):
+  - `chrome.storage` inicial (local e sync, com a cota real do sync); ao salvar, o preview pode recomeçar com esses dados, e dá para copiar o estado atual do preview para a fixture;
+  - abas fictícias para `tabs.query`/`tabs.get` (url e título só aparecem com a permissão `tabs` ou `host_permissions`, como no Chrome);
+  - **respostas simuladas** para `runtime.sendMessage` (service worker), `tabs.sendMessage` (content script) e mensagens para outras extensões: a primeira regra cuja "mensagem contém" casar responde com o JSON (ou falha com um erro), com atraso opcional, em promessa ou callback. O console diz qual regra respondeu e que o código real não rodou. Sem regra, falha como no Chrome;
+  - só dados JSON, nada executado; fica no histórico e fora do ZIP da extensão.
+- **Extensão ↔ Rede:** os mocks de `poiesis.mocks.json` valem para o popup, as opções e o painel lateral; o painel Rede avisa que as requisições do service worker e dos content scripts só aparecem no DevTools da extensão instalada.
+- **Extensão ↔ Inspetor:** o inspetor funciona no popup, nas opções e no painel lateral simulados.
+- **Rede → histórico:** "Criar mock" e salvar mocks gravam antes uma versão ("Antes de mudar os mocks"/"Antes de criar um mock"); a fixture criada de uma resposta sai com campos de segredo mascarados (`token`, `password`, `senha`, `segredo`, `chave`…).
+- As versões do histórico dizem de qual módulo vieram, com rótulo e ícone próprios (inspetor, mocks, extensão, pasta).
+
+**Testes:** `tests/e2e/integracao.py` (33 verificações): gravação de regra, propriedade nova no fim do bloco, desligar, estilo inline, `@media`, `<style>` no HTML, regra ambígua não gravada, valor perigoso recusado, desfazer, fixture com segredo mascarado, versões no histórico, storage/abas/respostas simuladas (promessa, callback e erro), inspetor no popup, mocks de rede no popup e fixture fora do ZIP.
+
+**Pendências da Fase 6:**
+- Rodar o próprio service worker do projeto dentro do preview (em vez de respostas declaradas) e simular `onMessage` de verdade entre as partes.
+- Aplicar no código mudanças de estados forçados (`:hover`) como regra nova.
+
 ## O que já existe (fase 5)
 
 **Extension Studio** (painel **Extensão** na barra lateral; o núcleo fica em `src/lib/ext/`, a interface em `src/components/ExtensionPanel.tsx`, `ManifestForm.tsx` e `ExtensionDialogs.tsx`):
@@ -74,7 +100,7 @@ O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runt
 **Testes:** `tests/e2e/extensao.py` (58 verificações). Além do editor, o teste **exporta o ZIP, descompacta e carrega a extensão num Chromium de verdade**: o service worker sobe, o popup usa o `chrome.storage` real, o content script roda numa página de `matches`, opções e painel lateral abrem sem erro de CSP; e duas extensões exportadas (principal e complementar) conversam depois da configuração, enquanto uma terceira, não autorizada, é recusada.
 
 **Pendências da Fase 5:**
-- O preview não roda o service worker nem content scripts (limite do navegador). Simular `onMessage` entre popup e service worker fica para a Fase 6, junto com fixtures de `chrome.*`.
+- O preview não roda o service worker nem content scripts (limite do navegador). As respostas simuladas e as fixtures de `chrome.*` chegaram na Fase 6.
 - Faltam modelos de DevTools, nova aba e regras de `declarativeNetRequest`.
 - A validação de `_locales` confere o arquivo do idioma padrão, mas ainda não as chaves `__MSG_…__` uma a uma.
 
@@ -102,7 +128,7 @@ O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runt
 **Pendências da Fase 4:**
 - A especificidade é calculada de forma aproximada (cobre `:is`, `:not` e `:where` só pela soma simples).
 - Pseudo-elementos (`::before`, `::after`) e animações ainda não aparecem no painel.
-- Persistir uma edição no arquivo fica para a Fase 6, com mapeamento seguro.
+- ~~Persistir uma edição no arquivo~~ (feito na Fase 6).
 
 ## O que já existe (fase 3)
 

@@ -8,6 +8,7 @@ import { baseName, dirName, resolvePath } from "../files";
 import { MOCKS_FILE } from "../net";
 import { MANIFEST, PAGE_ROLES, editManifest, entriesOf, getAt, htmlRefs, isGlob, jsRefs, jsonRange, manifestFile, parseManifest, pngSize, setAt, type EntryRef, type JPath, type Json } from "./manifest";
 import { safeZipName } from "./map";
+import { CHROME_FILE } from "./fixtures";
 import { API_PERMISSION, BROAD_HOSTS, PERM, isExtensionId, matchPatternError } from "./permissions";
 
 export type Sev = "error" | "warning" | "info";
@@ -289,6 +290,7 @@ export function validateExtension(files: PFile[]): ExtReport {
     if (bad) FP("error", `“${f.name}”: o Chrome não carrega extensões com arquivos ou pastas que começam com "_" (reservado). Renomeie “${bad}”.`, f.name, 0, 0);
   }
   for (const f of files) if (!safeZipName(f.name)) FP("error", `Nome de arquivo inválido para o ZIP: “${f.name}”. Ele fica fora da exportação.`, f.name, 0, 0);
+  if (byName.has(CHROME_FILE)) FP("info", `${CHROME_FILE} guarda a simulação do chrome.* para o preview e fica fora do ZIP da extensão.`, CHROME_FILE, 0, 0);
   if (byName.has(MOCKS_FILE)) FP("info", `${MOCKS_FILE} é do Poiesis (mocks do preview) e fica fora do ZIP da extensão.`, MOCKS_FILE, 0, 0);
 
   /* ---------- páginas da extensão: CSP do MV3 ---------- */

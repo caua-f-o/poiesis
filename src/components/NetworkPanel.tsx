@@ -123,6 +123,7 @@ export function NetworkPanel({
   onRequest,
   onMockFrom,
   onJump,
+  extNote,
 }: {
   title: ReactNode;
   entries: NetEntry[];
@@ -137,6 +138,8 @@ export function NetworkPanel({
   onRequest(prefill?: NetRequest): void;
   onMockFrom(e: NetEntry): void;
   onJump(initiator: string): void;
+  /** projeto de extensão: avisa o que não aparece aqui */
+  extNote?: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
@@ -220,6 +223,12 @@ export function NetworkPanel({
           className="ml-1 h-7 w-28 shrink-0 rounded-full bg-md-high px-3 text-[12px] text-md-on-surface outline-none placeholder:text-md-on-variant focus:w-44"
         />
         </div>
+      {extNote && (
+        <div className="flex shrink-0 items-center gap-1.5 border-b border-md-outline-v px-3 py-1 text-[11.5px] text-md-on-variant" data-pz="net-ext-note">
+          <Icon name="extension" size={14} />
+          Aqui aparecem as requisições do popup, das opções e do painel lateral (e os mocks valem para elas). As do service worker e dos content scripts só no DevTools da extensão instalada.
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
         <div className={cn("min-h-0 overflow-y-auto", cur ? "w-[46%] border-r border-md-outline-v" : "flex-1")} role="listbox" aria-label="Requisições">
           {!shown.length && (

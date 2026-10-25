@@ -44,17 +44,19 @@ import { Preview, type PreviewHandle } from "@/components/Preview";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { MocksDialog, NetworkPanel, RequestDialog, type NetRequest } from "@/components/NetworkPanel";
 import { InspectorPanel, emptyInspector, type InspectorState } from "@/components/InspectorPanel";
-import { pathToSource, ruleInCss, sourceToPath, type MatchedRule, type NodeInfo, type PathStep } from "@/lib/inspect";
-import { MOCKS_FILE, NET_LIMITS, parseMocks, stringifyMocks, toHar, type MockRule, type MocksConfig, type NetEntry } from "@/lib/net";
+import { applyChanges, changesToCss, pathToSource, ruleInCss, sourceToPath, type MatchedRule, type NodeInfo, type PathStep, type TempChange } from "@/lib/inspect";
+import { MOCKS_FILE, NET_LIMITS, maskBody, parseMocks, stringifyMocks, toHar, type MockRule, type MocksConfig, type NetEntry } from "@/lib/net";
 import { StatusBar } from "@/components/StatusBar";
 import { ExtensionPanel } from "@/components/ExtensionPanel";
 import { ManifestForm } from "@/components/ManifestForm";
 import { ExportExtensionDialog, IconsDialog, NewExtensionDialog } from "@/components/ExtensionDialogs";
+import { ChromeSimDialog } from "@/components/ChromeSimDialog";
 import { MANIFEST, editManifest, isExtensionProject, jsonRange, pageRole, parseManifest, setAt, type JPath } from "@/lib/ext/manifest";
 import { applyFix, validateExtension, type ExtFix, type ExtProblem } from "@/lib/ext/validate";
 import { extensionZipFiles } from "@/lib/ext/map";
 import { extensionProject, type ExtOptions } from "@/lib/ext/templates";
 import { API_PERMISSION } from "@/lib/ext/permissions";
+import { CHROME_FILE, parseChromeFixtures, stringifyChromeFixtures, type ChromeFixtures } from "@/lib/ext/fixtures";
 import { AssetView } from "@/components/AssetView";
 import { MarkdownView, isMarkdown } from "@/components/MarkdownView";
 import { SymbolPicker, type SymbolPick } from "@/components/SymbolPicker";
@@ -100,7 +102,17 @@ function extPreview(p: Project, pageId: string | null, device: Device, storage: 
       /* JSON inválido: o validador avisa */
     }
   }
-  return { manifest: m, view: role === "popup" && device !== "full" ? null : role, storage: storage ?? {}, messages, apiPerms: API_PERMISSION };
+  const fx = p.files.find((f) => f.name === CHROME_FILE);
+  const fixtures = fx ? parseChromeFixtures(fx.content).config : null;
+  return {
+    manifest: m,
+    view: role === "popup" && device !== "full" ? null : role,
+    // sem estado guardado no preview, o chrome.storage começa com o da fixture
+    storage: storage ?? fixtures?.storage ?? {},
+    messages,
+    apiPerms: API_PERMISSION,
+    fixtures: fixtures ? { tabs: fixtures.tabs, messages: fixtures.messages } : undefined,
+  };
 }
 
 const STARTERS: Record<string, string> = {
@@ -178,6 +190,7 @@ export default function App() {
   const [extExport, setExtExport] = useState(false);
   const [manifestMode, setManifestMode] = useState<"form" | "json">(() => (localStorage.getItem("poiesis:manifest-mode") === "json" ? "json" : "form"));
   const [extSize, setExtSize] = useState<{ w: number; h: number } | null>(null);
+  const [chromeOpen, setChromeOpen] = useState(false);
   /** chrome.storage simulado do preview, por projeto */
   const extStorage = useRef<Record<string, ExtStore>>(
     (() => {
@@ -921,6 +934,26 @@ export default function App() {
     inspPath.current = path;
     setTimeout(() => inspCmd({ op: "byPath", path }), built.page?.id !== activeFile.id ? 900 : 0);
   };
+  /** grava no código as mudanças temporárias do inspetor (só onde o lugar é inequívoco) */
+  const applyInspector = (changes: TempChange[]) => {
+    if (!project || !changes.length) return;
+    const out = applyChanges(project.files, built.page?.name ?? null, changes);
+    const copyFailed = () => copyText(changesToCss(out.failed.map((f) => f.change)));
+    if (!out.applied.length) {
+      toast.warning("Nada foi gravado", { description: out.failed[0]?.reason, action: { label: "Copiar CSS", onClick: copyFailed }, duration: 9000 });
+      return;
+    }
+    checkpoint("pre-inspect", project, { label: `Antes de aplicar ${out.applied.length} mudança(s) do inspetor` });
+    const snapshot = project;
+    writeFiles(out.updates);
+    setTimeout(() => runNow(true), 60);
+    toast.success(`${out.applied.length} mudança(s) gravada(s) em ${Object.keys(out.updates).join(", ")}`, {
+      description: "A versão anterior ficou no histórico.",
+      action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) },
+    });
+    if (out.failed.length)
+      toast.warning(`${out.failed.length} mudança(s) não foram gravadas`, { description: out.failed.map((f) => `${f.change.prop}: ${f.reason}`).join(" · "), action: { label: "Copiar CSS", onClick: copyFailed }, duration: 12000 });
+  };
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text).then(
       () => toast.success("CSS copiado", { description: "Cole no arquivo para tornar a mudança permanente." }),
@@ -1076,6 +1109,36 @@ export default function App() {
     toast.success("Ícones gerados", { description: "icons/icon-16, 32, 48 e 128.png, ligados no manifesto.", action: { label: "Desfazer", onClick: () => updateProject((p) => (p.id === snapshot.id ? snapshot : p)) } });
   };
 
+  /* fixtures do chrome.* simulado */
+  const chromeSrc = project?.files.find((f) => f.name === CHROME_FILE)?.content;
+  const chromeParsed = useMemo(() => (chromeSrc != null ? parseChromeFixtures(chromeSrc) : null), [chromeSrc]);
+  const saveChrome = (c: ChromeFixtures, resetStorage: boolean) => {
+    if (!project) return;
+    if (chromeSrc != null && chromeParsed?.errors.some((e) => e.startsWith("JSON inválido"))) return void toast.error(`${CHROME_FILE} tem JSON inválido`, { description: "Corrija o arquivo antes, para não perder o que está nele." });
+    checkpoint("pre-ext", project, { label: "Antes de mudar a simulação do chrome.*" });
+    writeFiles({ [CHROME_FILE]: stringifyChromeFixtures(c) });
+    if (resetStorage) {
+      delete extStorage.current[project.id];
+      try {
+        localStorage.setItem("poiesis:ext-storage", JSON.stringify(extStorage.current));
+      } catch {
+        /* ignora */
+      }
+    }
+    setChromeOpen(false);
+    setTimeout(() => runNow(true), 60);
+    toast.success("Simulação salva", { description: `${c.messages.filter((m) => m.enabled).length} resposta(s) simulada(s), ${c.tabs.length || 1} aba(s) fictícia(s).${resetStorage ? " O chrome.storage do preview recomeçou com os dados da fixture." : ""}` });
+  };
+  const openChromeFile = () => {
+    if (!project) return;
+    if (chromeSrc == null) writeFiles({ [CHROME_FILE]: stringifyChromeFixtures({ version: 1, storage: { local: {}, sync: {} }, tabs: [], messages: [] }) });
+    setChromeOpen(false);
+    setTimeout(() => {
+      const f = wsRef.current?.projects[wsRef.current.currentId].files.find((x) => x.name === CHROME_FILE);
+      if (f) openFile(f.id);
+    }, 60);
+  };
+
   const exportExtension = (force = false) => {
     if (!project) return;
     const rep = validateExtension(project.files);
@@ -1117,6 +1180,7 @@ export default function App() {
     if (mocksSrc != null && mocksParsed?.errors.some((e) => e.includes("JSON inválido"))) {
       return void toast.error(`${MOCKS_FILE} tem JSON inválido`, { description: "Corrija o arquivo antes de salvar pelo editor de mocks, para não perder o que está nele." });
     }
+    if (project) checkpoint("pre-mocks", project, { label: "Antes de salvar os mocks" });
     upsertFile(MOCKS_FILE, stringifyMocks(c));
     toast.success("Mocks salvos", { description: `${c.mocks.filter((m) => m.enabled).length} ativo(s) em ${MOCKS_FILE}` });
   };
@@ -1138,7 +1202,15 @@ export default function App() {
     let fixture = `mocks/${slug}.${json ? "json" : "txt"}`;
     const names = new Set(project.files.map((f) => f.name));
     for (let i = 2; names.has(fixture); i++) fixture = `mocks/${slug}-${i}.${json ? "json" : "txt"}`;
-    let body = e.resBody.v;
+    // campos com cara de segredo (token, password…) saem mascarados na fixture
+    const raw = e.resBody.v;
+    let body = maskBody(e.resBody)?.v ?? raw;
+    let maskedAny = false;
+    try {
+      maskedAny = json ? JSON.stringify(JSON.parse(body)) !== JSON.stringify(JSON.parse(raw)) : body !== raw;
+    } catch {
+      body = raw;
+    }
     if (json) {
       try {
         body = JSON.stringify(JSON.parse(body), null, 2) + "\n";
@@ -1152,9 +1224,12 @@ export default function App() {
     for (let i = 2; ids.has(id); i++) id = `${slug.slice(0, 36)}-${i}`;
     const ct = e.resHeaders.find(([k]) => /^content-type$/i.test(k))?.[1];
     const rule: MockRule = { id, enabled: true, method: e.method, url: abs ? path : path || "/", status: e.status || 200, headers: ct ? { "Content-Type": ct } : {}, bodyFile: fixture, delay: 0, error: null };
+    checkpoint("pre-mocks", project, { label: "Antes de criar um mock" });
     upsertFile(fixture, body);
     upsertFile(MOCKS_FILE, stringifyMocks({ ...base, mocks: [...base.mocks, rule] }));
-    toast.success("Mock criado", { description: `Resposta salva em ${fixture} (só o corpo e o Content-Type). Revise se ela tiver dados pessoais.` });
+    toast.success("Mock criado", {
+      description: `Resposta salva em ${fixture} (só o corpo e o Content-Type).${maskedAny ? " Campos sensíveis (token, senha…) foram mascarados." : ""} Revise se ela tiver dados pessoais.`,
+    });
   };
 
   const openMocksFile = () => {
@@ -1546,6 +1621,7 @@ export default function App() {
               { id: "ext-export", group: "Extensão", label: "Exportar extensão (.zip)", icon: "folder_zip", run: () => exportExtension() },
               { id: "ext-form", group: "Extensão", label: "Editar manifesto (formulário)", icon: "tune", run: openManifestForm },
               { id: "ext-icons", group: "Extensão", label: "Gerar ícones…", icon: "image", run: () => setIconsOpen(true) },
+              { id: "ext-sim", group: "Extensão", label: "Simulação do chrome.* (fixtures)…", icon: "science", run: () => setChromeOpen(true) },
             ]
           : [{ id: "ext-convert", group: "Extensão", label: "Transformar este projeto em extensão", icon: "transform", run: convertToExtension }]),
         ...(folder.enabled
@@ -1826,6 +1902,7 @@ export default function App() {
               onGotoSource={gotoElementSource}
               onOpenRule={openRule}
               onCopy={copyText}
+              onApply={applyInspector}
               onDiscard={() => {
                 preview.current?.reload();
                 toast("Mudanças temporárias descartadas");
@@ -1846,6 +1923,7 @@ export default function App() {
               onRequest={(prefill) => setReqDialog({ open: true, prefill })}
               onMockFrom={mockFrom}
               onJump={jumpInitiator}
+              extNote={isExt}
             />
           ) : (
           <ConsolePanel
@@ -1970,6 +2048,8 @@ export default function App() {
                     onIcons={() => setIconsOpen(true)}
                     onForm={openManifestForm}
                     onFix={applyExtFix}
+                    onSim={() => setChromeOpen(true)}
+                    simCount={chromeParsed?.config.messages.filter((m) => m.enabled).length ?? 0}
                   />
                 )}
                 {settings.panel === "themes" && <ThemesPanel current={settings.theme} onPick={(id) => updateSettings({ theme: id })} />}
@@ -2118,6 +2198,15 @@ export default function App() {
           onOpenChange={setMocksOpen}
           onSave={saveMocks}
           onOpenFile={openMocksFile}
+        />
+        <ChromeSimDialog
+          open={chromeOpen}
+          onOpenChange={setChromeOpen}
+          config={chromeParsed?.config ?? { version: 1, storage: { local: {}, sync: {} }, tabs: [], messages: [] }}
+          fileErrors={chromeParsed?.errors ?? []}
+          current={project ? (extStorage.current[project.id] ?? null) : null}
+          onSave={saveChrome}
+          onOpenFile={openChromeFile}
         />
         <NewExtensionDialog open={extNew} onOpenChange={setExtNew} onCreate={createExtension} />
         <IconsDialog open={iconsOpen} onOpenChange={setIconsOpen} images={project.files.filter((f) => (f.kind === "asset" && /^image\//.test(f.mime ?? "")) || /\.svg$/i.test(f.name))} onApply={applyIcons} />

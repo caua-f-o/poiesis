@@ -19,6 +19,8 @@ O Poiesis executa código escrito pelo usuário e, às vezes, código de terceir
 - **Exibição:** conteúdo vindo da página (logs, respostas de rede, Markdown) é exibido como texto ou passa pelo DOMPurify. Não há `innerHTML` com dados não confiáveis.
 - **Inspetor:** a seleção só escuta eventos da página enquanto está ativa; o contorno fica num shadow root fechado com HTML fixo; nomes de propriedade editados passam por filtro e os valores vão por `style.setProperty`. As edições são temporárias e nunca tocam nos arquivos.
 - **Extension Studio:** as APIs `chrome.*` do preview são uma simulação em JavaScript comum, dentro da página isolada, sem nenhum privilégio. As mensagens dela (armazenamento simulado e tamanho do popup) passam pela mesma validação. O ZIP exportado nunca leva o runtime do Poiesis nem nomes de arquivo que escapariam da pasta ao descompactar. O modelo de extensão principal confere o remetente (`externally_connectable` + checagem no service worker).
+- **Inspetor gravando no código:** só grava quando o lugar é inequívoco (regra única no mesmo contexto; elemento presente no HTML-fonte) e recusa valores com `;`, `{`, `}` ou comentários. Antes de gravar, uma versão vai para o histórico.
+- **Fixtures do chrome.\*:** são só dados JSON validados (tamanho, tipos, quantidade); nada é executado. Fixtures criadas de respostas de rede saem com campos de segredo mascarados.
 - **Montagem do preview:** nomes de arquivo e conteúdo do usuário entram de forma literal (sem padrões `$&`), com aspas, `-->` e `</style` escapados.
 - **Dados sensíveis:**
   - o registro de rede fica só na memória;

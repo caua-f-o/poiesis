@@ -173,7 +173,7 @@ export function maskBody(b: NetBody | undefined): NetBody | undefined {
     try {
       const walk = (x: unknown): unknown => {
         if (Array.isArray(x)) return x.map(walk);
-        if (isObj(x)) return Object.fromEntries(Object.entries(x).map(([k, val]) => [k, SECRET_PARAMS.test(k) || /pass|secret|token/i.test(k) ? MASK : walk(val)]));
+        if (isObj(x)) return Object.fromEntries(Object.entries(x).map(([k, val]) => [k, SECRET_PARAMS.test(k) || /pass|secret|token|senha|segredo|chave/i.test(k) ? MASK : walk(val)]));
         return x;
       };
       return { ...b, v: JSON.stringify(walk(JSON.parse(v)), null, 2) };
@@ -184,7 +184,7 @@ export function maskBody(b: NetBody | undefined): NetBody | undefined {
   if (b.t === "form" || /^[\w.%-]+=[^&]*(&[\w.%-]+=[^&]*)*$/.test(v)) {
     try {
       const p = new URLSearchParams(v);
-      for (const k of [...p.keys()]) if (SECRET_PARAMS.test(k) || /pass|secret|token/i.test(k)) p.set(k, MASK);
+      for (const k of [...p.keys()]) if (SECRET_PARAMS.test(k) || /pass|secret|token|senha|segredo|chave/i.test(k)) p.set(k, MASK);
       return { ...b, v: p.toString() };
     } catch {
       return b;

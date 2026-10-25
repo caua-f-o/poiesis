@@ -45,6 +45,9 @@ interface Props {
   onIcons(): void;
   onForm(): void;
   onFix(fix: ExtFix): void;
+  /** abre o editor das fixtures do chrome.* simulado */
+  onSim(): void;
+  simCount: number;
 }
 
 function lineOf(text: string, off: number) {
@@ -95,7 +98,7 @@ function Tree({ node, depth, onOpen }: { node: MapNode; depth: number; onOpen(f:
   );
 }
 
-export function ExtensionPanel({ project, isExt, report, onNew, onConvert, onOpen, onPreview, onExport, onIcons, onForm, onFix }: Props) {
+export function ExtensionPanel({ project, isExt, report, onNew, onConvert, onOpen, onPreview, onExport, onIcons, onForm, onFix, onSim, simCount }: Props) {
   const m = report?.manifest;
   const map = useMemo(() => (m ? extensionMap(project.files, m) : null), [project.files, m]);
 
@@ -163,6 +166,9 @@ export function ExtensionPanel({ project, isExt, report, onNew, onConvert, onOpe
             </button>
             <button className="md-btn md-btn-text h-8 text-[12px]" onClick={onIcons}>
               <Icon name="image" size={16} /> Ícones
+            </button>
+            <button className="md-btn md-btn-text col-span-2 h-8 text-[12px]" onClick={onSim} title="Fixtures do chrome.* simulado: storage inicial, abas e respostas" aria-label="Simulação do chrome.*">
+              <Icon name="science" size={16} /> Simulação do chrome.*{simCount ? ` · ${simCount} resposta(s)` : ""}
             </button>
           </div>
         </div>

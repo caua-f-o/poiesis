@@ -49,12 +49,12 @@ REDE E APIs
 EXTENSION STUDIO
 • Crie extensões para Chrome (Manifest V3) a partir de modelos: popup, opções, painel lateral, content script e service worker
 • Manifesto em formulário ou JSON, permissões explicadas e validação antes de exportar, com correções de um clique
-• Preview do popup com as APIs chrome.* simuladas e ZIP pronto para "Carregar sem compactação"
+• Preview do popup com as APIs chrome.* simuladas (storage, abas e respostas de teste) e ZIP pronto para "Carregar sem compactação"
 
 INSPETOR DE ELEMENTOS
 • Clique num elemento do preview e veja as regras CSS que se aplicam, os valores finais e o box model
 • Force :hover e :focus e teste mudanças temporárias; copie o CSS resultante quando gostar
-• Vá do elemento para a tag no HTML ou a regra no CSS, e do código para o elemento no preview
+• Vá do elemento para a tag no HTML ou a regra no CSS, e grave as mudanças no código com um clique
 
 HISTÓRICO LOCAL
 • Versões automáticas enquanto você trabalha e antes de excluir, importar ou substituir

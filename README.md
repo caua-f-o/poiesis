@@ -53,6 +53,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - Regras que casam com o elemento, com arquivo e especificidade, declarações vencidas riscadas, valores calculados, variáveis CSS e box model.
 - Force `:hover`, `:focus` e outros estados, e teste mudanças temporárias: nada vai para o arquivo até você copiar o CSS gerado.
 - "Ver no código" leva à tag no HTML ou à regra no CSS; no editor HTML, `Ctrl+Shift+C` seleciona no preview o elemento sob o cursor.
+- **Aplicar no código:** grava as mudanças nos arquivos quando o lugar é inequívoco (regra única no mesmo contexto, elemento que existe no HTML), com versão antes no histórico. Quando não dá, explica o motivo e oferece copiar o CSS.
 
 **Extension Studio** (painel "Extensão"):
 - Crie extensões para Chrome e Edge (Manifest V3) a partir de modelos: popup, opções, painel lateral, content script, service worker e o par principal/complementar.
@@ -60,6 +61,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - Validação antes de exportar: arquivos que faltam, chaves do MV2, CSP do MV3 (scripts inline, `onclick`), APIs `chrome.*` sem a permissão. Muitas têm correção de um clique.
 - Cada permissão explicada, com o risco e o aviso que aparece na instalação. Gerador de ícones PNG.
 - Preview do popup, das opções e do painel lateral com as APIs `chrome.*` **simuladas** (e marcadas como simulação). Service worker e content scripts só rodam com a extensão instalada.
+- **Simulação do chrome.*:** `chrome.storage` inicial, abas fictícias e respostas simuladas para mensagens ao service worker, aos content scripts e a outras extensões, num arquivo do projeto (`poiesis.chrome.json`) que fica fora do ZIP.
 - Exporta um ZIP pronto para "Carregar sem compactação" em `chrome://extensions`.
 
 **Pasta no computador** (opcional; ligue em Preferências):
@@ -102,7 +104,7 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 
 ## Roadmap
 
-Próximos passos (integração entre os módulos, os mascotes Lúmen e Pólen e a música de foco) em [`ROADMAP.md`](ROADMAP.md).
+Próximos passos (os mascotes Lúmen e Pólen e a música de foco) em [`ROADMAP.md`](ROADMAP.md).
 
 ## Privacidade
 

@@ -488,6 +488,38 @@
     }
     function noReceiver() { return new Error("Could not establish connection. Receiving end does not exist."); }
 
+    /* --- fixtures (poiesis.chrome.json): respostas simuladas para mensagens --- */
+    var FX = X.fixtures || {};
+    var responders = Array.isArray(FX.messages) ? FX.messages.filter(function (r) { return r && r.enabled !== false; }) : [];
+    function subset(want, got) {
+      if (want === null || typeof want !== "object") return want === got;
+      if (got === null || typeof got !== "object") return false;
+      if (Array.isArray(want)) return Array.isArray(got) && want.length === got.length && want.every(function (w, i) { return subset(w, got[i]); });
+      for (var k in want) if (!Object.prototype.hasOwnProperty.call(got, k) || !subset(want[k], got[k])) return false;
+      return true;
+    }
+    function respond(to, msg, extId, api, cb) {
+      var r = null;
+      for (var i = 0; i < responders.length && !r; i++) {
+        var x = responders[i];
+        if ((x.to || "runtime") !== to) continue;
+        if (to === "external" && x.extensionId && x.extensionId !== extId) continue;
+        if (subset(x.match || {}, msg)) r = x;
+      }
+      if (!r) return null;
+      var who = to === "runtime" ? "service worker" : to === "tab" ? "content script" : "outra extensão";
+      say("info", api + ": resposta simulada por “" + r.id + "” (poiesis.chrome.json). O " + who + " de verdade não rodou.");
+      var value = clone(r.response), err = r.error ? new Error(String(r.error)) : null;
+      if (typeof cb === "function") {
+        setTimeout(function () {
+          if (err) api_.runtime.lastError = { message: err.message };
+          try { cb(err ? undefined : value); } finally { api_.runtime.lastError = undefined; }
+        }, r.delay || 0);
+        return undefined;
+      }
+      return new Promise(function (res, rej) { setTimeout(function () { err ? rej(err) : res(value); }, r.delay || 0); });
+    }
+
     /* --- storage --- */
     var stores = { local: clone(X.storage && X.storage.local) || {}, sync: clone(X.storage && X.storage.sync) || {}, session: {} };
     var anyChanged = makeEvent("storage.onChanged");
@@ -568,6 +600,8 @@
       sendMessage: function () {
         var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null;
         var ext = typeof a[0] === "string" && a.length > 1;
+        var mocked = respond(ext ? "external" : "runtime", ext ? a[1] : a[0], ext ? a[0] : null, "runtime.sendMessage", cb);
+        if (mocked !== null) return mocked;
         say("warn", ext
           ? "runtime.sendMessage para outra extensão (" + a[0] + "): no preview não há outras extensões. Teste com as duas instaladas no navegador."
           : "runtime.sendMessage: no preview não há service worker para responder. Teste com a extensão instalada.");
@@ -601,16 +635,23 @@
     };
 
     /* --- abas e janelas (uma aba fictícia) --- */
-    function fakeTab() {
-      var t = { id: 1, index: 0, windowId: 1, active: true, highlighted: true, pinned: false, incognito: false, status: "complete", discarded: false, autoDiscardable: true, groupId: -1 };
-      if (granted.tabs || hosts.length) { t.url = "https://example.com/"; t.title = "Aba simulada"; }
+    var fxTabs = Array.isArray(FX.tabs) && FX.tabs.length ? FX.tabs : [{ url: "https://example.com/", title: "Aba simulada", active: true }];
+    function makeTab(src, i) {
+      var t = { id: i + 1, index: i, windowId: 1, active: !!src.active, highlighted: !!src.active, pinned: false, incognito: false, status: "complete", discarded: false, autoDiscardable: true, groupId: -1 };
+      if (granted.tabs || hosts.length) { t.url = String(src.url); t.title = String(src.title || ""); }
       else say("info", "tabs: sem a permissão \"tabs\" (ou host_permissions), url e title das abas vêm vazios — igual ao Chrome.", true);
       return t;
     }
+    function allTabs() { return fxTabs.map(makeTab); }
+    function fakeTab() { var all = allTabs(); for (var i = 0; i < all.length; i++) if (all[i].active) return all[i]; return all[0]; }
     var tabs = {
       TAB_ID_NONE: -1,
-      query: function (q, cb) { say("info", "tabs.query devolve uma aba fictícia.", true); return done(cb, [fakeTab()]); },
-      get: function (id, cb) { return done(cb, fakeTab()); },
+      query: function (q, cb) {
+        say("info", "tabs.query devolve abas fictícias" + (FX.tabs && FX.tabs.length ? " (de poiesis.chrome.json)." : "."), true);
+        var list = allTabs().filter(function (t) { return !(q && q.active === true && !t.active); });
+        return done(cb, list);
+      },
+      get: function (id, cb) { var all = allTabs(); for (var i = 0; i < all.length; i++) if (all[i].id === id) return done(cb, all[i]); return done(cb, undefined, new Error("No tab with id: " + id + ".")); },
       getCurrent: function (cb) { return done(cb, undefined); },
       create: function (o, cb) {
         var url = o && o.url ? String(o.url) : "";
@@ -628,6 +669,8 @@
       reload: function () { var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null; say("warn", "tabs.reload: não há abas reais no preview."); return done(cb, undefined); },
       sendMessage: function () {
         var a = [].slice.call(arguments), cb = typeof a[a.length - 1] === "function" ? a.pop() : null;
+        var mocked = respond("tab", a[1], null, "tabs.sendMessage", cb);
+        if (mocked !== null) return mocked;
         say("warn", "tabs.sendMessage: content scripts não rodam no preview, então ninguém responde. Teste com a extensão instalada, numa página de \"matches\".");
         return done(cb, undefined, noReceiver());
       },
@@ -733,6 +776,7 @@
     var known = { runtime: runtime, storage: storage, tabs: tabs, windows: windows, action: action, sidePanel: sidePanel, i18n: i18n, permissions: permissions, alarms: alarms, contextMenus: contextMenus, notifications: notifications, scripting: scripting, commands: commands };
     var needs = X.apiPerms || {};
     var api = {};
+    var api_ = { runtime: runtime };
     function namespace(ns) {
       // API que o mock não conhece: avisa no uso em vez de quebrar
       return new Proxy({}, {
@@ -1356,28 +1400,52 @@
 
   /* --- edição temporária --- */
   var PROP_RE = /^(--[\w-]+|-?[a-z][a-z-]*)$/;
-  function noteChange(target, file, prop, old, val) {
-    INS.changes = INS.changes.filter(function (c) { return !(c.target === target && c.prop === prop); });
-    if (old !== val) INS.changes.push({ target: clip(target, 300), file: clip(file || "", 300), prop: prop, old: clip(old, 300), value: clip(val, 300) });
+  // contexto de uma regra (@media, @supports…), para achar a regra certa no código-fonte
+  function ruleCtx(r) {
+    var c = [];
+    for (var p = r && r.parentRule; p; p = p.parentRule) {
+      var n = p.constructor && p.constructor.name;
+      if (p.type === 4) c.unshift("@media " + (p.conditionText || p.media.mediaText));
+      else if (p.type === 12) c.unshift("@supports " + p.conditionText);
+      else if (n === "CSSLayerBlockRule") c.unshift("@layer " + (p.name || ""));
+      else if (n === "CSSContainerRule") c.unshift("@container " + p.conditionText);
+    }
+    return c;
   }
+  // registro das mudanças temporárias: guarda o valor original da primeira mudança e o
+  // que é preciso para aplicá-la no código (tipo, contexto da regra ou caminho do elemento)
+  function noteChange(target, file, prop, old, val, extra) {
+    var prev = null;
+    INS.changes = INS.changes.filter(function (c) { if (c.target === target && c.prop === prop) { prev = c; return false; } return true; });
+    var orig = prev ? prev.old : old;
+    extra = extra || {};
+    if (orig !== val)
+      INS.changes.push({
+        target: clip(target, 300), file: clip(file || "", 300), prop: prop, old: clip(orig, 300), value: clip(val, 300),
+        kind: extra.kind || "rule", ctx: (extra.ctx || []).map(function (x) { return clip(x, 200); }), path: extra.path || null, imp: !!extra.imp,
+      });
+  }
+  // o valor como a pessoa digitou (para gravar no código igual), se o navegador aceitou
+  function typed(old, cur, value) { return cur === old ? cur : value === "" ? "" : String(value).trim(); }
   function setInline(el, prop, value, important) {
     if (!PROP_RE.test(prop)) return;
     var old = el.style.getPropertyValue(prop);
     if (value === "") el.style.removeProperty(prop); else el.style.setProperty(prop, value, important ? "important" : "");
-    noteChange(label(el) + " (style)", "", prop, old, el.style.getPropertyValue(prop));
+    noteChange(label(el) + " (style)", "", prop, old, typed(old, el.style.getPropertyValue(prop), value), { kind: "inline", path: pathOf(el), imp: el.style.getPropertyPriority(prop) === "important" });
   }
   function setRule(r, prop, value, enabled) {
     if (!r || !PROP_RE.test(prop)) return;
     var old = r.style.getPropertyValue(prop);
     r.__pzOff = r.__pzOff || {};
+    var ex = { kind: "rule", ctx: ruleCtx(r), imp: r.style.getPropertyPriority(prop) === "important" };
     if (enabled === false) {
       if (old) { r.__pzOff[prop] = [old, r.style.getPropertyPriority(prop)]; r.style.removeProperty(prop); }
-      noteChange(r.selectorText, sheetFile(r.parentStyleSheet), prop, old, "(desligado)");
+      noteChange(r.selectorText, sheetFile(r.parentStyleSheet), prop, old, "(desligado)", ex);
       return;
     }
-    if (enabled === true && r.__pzOff[prop]) { var o = r.__pzOff[prop]; delete r.__pzOff[prop]; r.style.setProperty(prop, o[0], o[1]); noteChange(r.selectorText, sheetFile(r.parentStyleSheet), prop, "", o[0]); return; }
+    if (enabled === true && r.__pzOff[prop]) { var o = r.__pzOff[prop]; delete r.__pzOff[prop]; r.style.setProperty(prop, o[0], o[1]); ex.imp = o[1] === "important"; noteChange(r.selectorText, sheetFile(r.parentStyleSheet), prop, "", o[0], ex); return; }
     if (value === "") r.style.removeProperty(prop); else r.style.setProperty(prop, value, r.style.getPropertyPriority(prop));
-    noteChange(r.selectorText, sheetFile(r.parentStyleSheet), prop, old, r.style.getPropertyValue(prop));
+    noteChange(r.selectorText, sheetFile(r.parentStyleSheet), prop, old, typed(old, r.style.getPropertyValue(prop), value), ex);
   }
 
   function inspectCmd(q) {

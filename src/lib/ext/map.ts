@@ -5,6 +5,7 @@
 import type { PFile, Project } from "../types";
 import { dirName, resolvePath } from "../files";
 import { MOCKS_FILE, parseMocks } from "../net";
+import { CHROME_FILE } from "./fixtures";
 import { MANIFEST, entriesOf, htmlRefs, isGlob, jsRefs, type Json, type Role } from "./manifest";
 
 export interface MapNode {
@@ -84,7 +85,7 @@ export function extensionZipFiles(project: Project, m: Json): { include: PFile[]
   const excluded: string[] = [];
   const include = project.files.filter((f) => {
     // nomes que escapariam da pasta ao descompactar (../, /, \) nunca entram
-    if (f.name === MOCKS_FILE || (fixtures.has(f.name) && !reached.has(f.name)) || !safeZipName(f.name)) {
+    if (f.name === MOCKS_FILE || f.name === CHROME_FILE || (fixtures.has(f.name) && !reached.has(f.name)) || !safeZipName(f.name)) {
       excluded.push(f.name);
       return false;
     }

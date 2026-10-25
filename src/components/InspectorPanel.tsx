@@ -4,7 +4,7 @@
  * edição temporária. Tudo vindo da página aparece como texto (React escapa). */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { BriefNode, Decl, MatchedRule, NodeInfo } from "@/lib/inspect";
-import { changesToCss } from "@/lib/inspect";
+import { changesToCss, type TempChange } from "@/lib/inspect";
 import { Icon } from "./Icon";
 import { IconButton, Tip } from "./md";
 import { cn } from "@/lib/utils";
@@ -377,6 +377,7 @@ export function InspectorPanel({
   onOpenRule,
   onCopy,
   onDiscard,
+  onApply,
 }: {
   title: ReactNode;
   st: InspectorState;
@@ -386,6 +387,8 @@ export function InspectorPanel({
   onOpenRule(r: MatchedRule): void;
   onCopy(text: string): void;
   onDiscard(): void;
+  /** grava as mudanças temporárias no código (só onde o lugar é inequívoco) */
+  onApply?(changes: TempChange[]): void;
 }) {
   const [open, setOpen] = useState<Set<number>>(new Set());
   const [tab, setTab] = useState<Tab>("estilos");
@@ -434,6 +437,13 @@ export function InspectorPanel({
         </div>
         {!!info?.changes.length && (
           <>
+            {onApply && (
+              <Tip label="Gravar as mudanças nos arquivos (uma versão vai antes para o histórico)">
+                <button className="md-btn md-btn-tonal h-7 shrink-0 px-2.5 text-[12px]" onClick={() => onApply(info.changes)} aria-label="Aplicar no código">
+                  <Icon name="save" size={15} /> Aplicar no código
+                </button>
+              </Tip>
+            )}
             <Tip label="Copiar as mudanças como CSS">
               <button className="md-btn md-btn-text h-7 shrink-0 px-2 text-[12px]" onClick={() => onCopy(changesToCss(info.changes))}>
                 <Icon name="content_copy" size={15} /> {info.changes.length}
@@ -528,7 +538,7 @@ export function InspectorPanel({
               </div>
               {!!info.changes.length && (
                 <div className="shrink-0 border-t border-md-outline-v px-3 py-1.5 text-[11.5px] text-md-on-variant">
-                  {info.changes.length} mudança(s) temporária(s) no preview — somem ao recarregar. Use copiar para levar ao código.
+                  {info.changes.length} mudança(s) temporária(s) no preview — somem ao recarregar. "Aplicar no código" grava nos arquivos quando o lugar é inequívoco; o resto dá para copiar.
                 </div>
               )}
             </>

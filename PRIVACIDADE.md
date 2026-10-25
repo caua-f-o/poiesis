@@ -21,7 +21,7 @@ A extensão em si não faz nenhuma requisição de rede. As conexões que podem 
 - **O console de APIs** (painel Rede) só envia uma requisição quando você clica em "Enviar". Ela parte da página isolada do preview, como se a sua página a fizesse, sem cookies.
 - **O registro de rede** (o que a sua página pediu e recebeu) fica só na memória enquanto o Poiesis está aberto e nunca é salvo. Tokens e cookies aparecem mascarados. Se você exportar um HAR, os dados sensíveis saem mascarados. Mocks e respostas que você decidir guardar viram arquivos do seu projeto.
 - **O inspetor de elementos** só lê a página do preview, dentro do seu navegador. As edições feitas por ele são temporárias e não são salvas nem enviadas.
-- **Extensões que você cria:** o `chrome.storage` simulado no preview fica guardado no navegador, separado por projeto, e nunca é enviado. O ZIP da extensão é montado no seu computador.
+- **Extensões que você cria:** o `chrome.storage` simulado no preview fica guardado no navegador, separado por projeto, e nunca é enviado. As fixtures da simulação (`poiesis.chrome.json`) são um arquivo do seu projeto. O ZIP da extensão é montado no seu computador.
 - **Os links "Abrir no MDN"** nos cartões de definição abrem a documentação do MDN numa nova aba, só quando você clica.
 
 ## Permissões
