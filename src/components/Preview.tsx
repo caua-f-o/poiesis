@@ -15,6 +15,8 @@ export interface PreviewHandle {
   source(): Window | null;
   /** console de APIs: pede para a página do preview enviar uma requisição */
   netSend(req: { method: string; url: string; headers: [string, string][]; body: string; timeout: number }): void;
+  /** comando para o inspetor dentro da página */
+  inspect(cmd: Record<string, unknown>): void;
 }
 
 const DEVICES: Record<Exclude<Device, "full">, { w: number; h: number; label: string }> = {
@@ -40,6 +42,9 @@ interface Props {
   onLandscape(): void;
   onPopout(): void;
   onToggleConsole(): void;
+  /** inspetor: seleção de elemento */
+  picking?: boolean;
+  onPick?(): void;
   onExportHtml(): void;
 }
 
@@ -63,6 +68,7 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
     highlight: (selector) => send({ __poiesisHost: 1, type: "highlight", selector }),
     source: () => host.current?.contentWindow ?? null,
     netSend: (req) => send({ __poiesisHost: 1, type: "net-send", req }),
+    inspect: (cmd) => send({ __poiesisHost: 1, type: "inspect", cmd }),
   }));
 
   useLayoutEffect(() => {
@@ -135,6 +141,7 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
         <IconButton icon="refresh" label="Recarregar" shortcut="Ctrl+R" size="sm" onClick={reload} />
         {p.canPopout && <IconButton icon="open_in_new" label="Abrir em nova aba (sincronizada)" size="sm" onClick={p.onPopout} />}
         <IconButton icon="download" label="Baixar HTML único" size="sm" onClick={p.onExportHtml} />
+        {p.onPick && <IconButton icon="arrow_selector_tool" label="Selecionar elemento para inspecionar" shortcut="Ctrl+Shift+C" size="sm" on={p.picking} onClick={p.onPick} />}
         <IconButton
           icon="terminal"
           label="Console"

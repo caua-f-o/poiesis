@@ -1,6 +1,6 @@
 # Roadmap do Poiesis
 
-Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos módulos 1, 4, 5 e 6 (objetivos, limites técnicos e critérios de aceite) está em [`docs/especificacao-modulos-1-4-5-6.md`](docs/especificacao-modulos-1-4-5-6.md). Ela continua valendo, inclusive as regras comuns e a definição de pronto. Aqui ficam a ordem, o status e o módulo 7 (pasta local), que entrou depois.
+Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos módulos 1, 4, 5 e 6 (objetivos, limites técnicos e critérios de aceite) está em [`docs/especificacao-modulos-1-4-5-6.md`](docs/especificacao-modulos-1-4-5-6.md). Ela continua valendo, inclusive as regras comuns e a definição de pronto. Aqui ficam a ordem, o status e os módulos que entraram depois: 7 (pasta local), 8 (mascotes Lúmen e Pólen) e 9 (música de foco).
 
 **Visão:** uma IDE web local-first, com recursos online opcionais e integrada ao fluxo de criação de extensões, sem virar cópia do DevTools ou do VS Code.
 
@@ -12,9 +12,10 @@ Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos m
 | **1 — Histórico local** (módulo 6) | Snapshots por hash, automáticos e manuais, pontos antes de operações destrutivas, linha do tempo, comparador lado a lado e em linha, restauração de trecho, arquivo ou projeto, retenção, exportar e importar | ✅ 2.4.0 |
 | **2 — Pasta local** (módulo 7) | Editar diretamente uma pasta do computador, como opção nas preferências | ✅ 2.5.0 |
 | **3 — Network MVP** (módulo 4) | Captura de `fetch`/XHR do preview, mocks locais, latência e erros simulados | ✅ 2.6.0 |
-| **4 — Inspetor MVP** (módulo 1) | Seleção no preview, árvore DOM, estilos computados, box model, edição temporária | Planejado |
+| **4 — Inspetor MVP** (módulo 1) | Seleção no preview, árvore DOM, estilos computados, box model, edição temporária | ✅ 2.7.0 |
 | **5 — Extension Studio MVP** (módulo 5) | Templates MV3, editor de manifesto sincronizado, validação e exportação em ZIP | Planejado |
 | **6 — Integração avançada** | Edição persistente pelo inspetor (com mapeamento seguro), fixtures, mocks de `chrome.*`, snapshots coordenados entre módulos | Planejado |
+| **7 — Companhia e foco** (módulos 8 e 9) | Mascotes Lúmen e Pólen; botão de música de fundo para foco | Planejado |
 
 O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runtime do preview já tem. É incremento, não reescrita, e já valida a ponte tipada que o Inspetor também vai usar.
 
@@ -45,6 +46,32 @@ O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runt
 **Pendências da Fase 1:**
 - Filtro de "segredos conhecidos" (por exemplo `.env`) nos snapshots: hoje o limite por tamanho de arquivo cobre o caso dos binários grandes.
 - Recuperar um projeto excluído direto pelo histórico: hoje o histórico dele fica guardado até ser limpo, mas não há botão para recriar o projeto.
+
+## O que já existe (fase 4)
+
+**Aba Elementos** (ao lado do Console e da Rede; o inspetor fica em `src/lib/runtime.js`, a validação e o vínculo com o código em `src/lib/inspect.ts`, a interface em `src/components/InspectorPanel.tsx`):
+
+- **Seleção no preview:** botão na barra do preview ou `Ctrl+Shift+C`. O elemento sob o mouse ganha contorno com margem, borda, preenchimento e conteúdo; o clique seleciona e **não chega à página** (nem `mousedown`, `pointerdown`, duplo clique ou menu). `Esc` cancela. Fora do modo de seleção, o inspetor não escuta nada na página.
+- **Árvore DOM:** carregada aos poucos, navegável pelo teclado (setas, Enter), com breadcrumb e busca por seletor ou texto. O runtime, o importmap e os estilos do próprio Poiesis ficam fora. Elementos **criados por script** aparecem marcados como "dinâmico" (o runtime acompanha `createElement`, `cloneNode`, `innerHTML` e afins desde o início).
+- **Estilos:** `elemento.style` e as regras que casam, da mais específica para a menos, com seletor, especificidade (aproximada), arquivo e contexto (`@media`, `@supports`, `@layer`, `@container`). As declarações aparecem como foram escritas (com atalhos, como `margin: 4px 0`), e as que perdem para outra regra aparecem riscadas. Folhas de outra origem (CDN) são contadas, mas não lidas.
+- **Calculado:** os valores finais das propriedades principais (ou todas), com as variáveis CSS usadas resolvidas. **Caixa:** o box model com margem, borda, preenchimento e tamanho. **Atributos:** a lista completa, sempre como texto.
+- **Estados forçados:** `:hover`, `:focus`, `:active`, `:focus-visible` e `:focus-within`, aplicados com cópias das regras (o estado real da página não é tocado).
+- **Edição temporária:** mudar o valor, ligar e desligar declarações e acrescentar propriedades, no elemento ou na regra. Nada vai para o arquivo; um contador mostra as mudanças, "Copiar CSS" gera o CSS delas agrupado por seletor e arquivo, e "Descartar" recarrega o preview.
+- **Código ↔ preview:** "Ver no código" abre o HTML na tag do elemento; o arquivo de cada regra abre na linha do seletor; no editor HTML, `Ctrl+Shift+C` (ou o menu de contexto "Inspecionar este elemento no preview") seleciona no preview o elemento sob o cursor. Depois de recarregar, o mesmo elemento continua selecionado, se ainda existir.
+
+**Segurança desta fase:**
+- O inspetor usa o mesmo canal validado da Rede: as ordens vão do editor ao sandbox, que repassa só campos simples e com limite de tamanho, e o runtime só as aceita da janela pai. Um iframe de terceiro na página não consegue ligar a seleção (testado).
+- Tudo o que vem da página (tags, atributos, textos, seletores, valores) passa por `parseInspect`, com tipos e limites, e é exibido como texto. Um atributo com `<img onerror>` aparece literal (testado). Mensagens com sessão errada são ignoradas.
+- O contorno fica num shadow root fechado, com HTML fixo, sem nada da página dentro.
+- As propriedades editadas passam por um filtro de nome (`PROP_RE`) e os valores vão por `style.setProperty`, nunca por texto de CSS montado.
+- **Correções encontradas na revisão:** nomes de arquivo com aspas ou `-->` agora são escapados nos atributos e comentários que o preview injeta, e um CSS com `</style` dentro não fecha mais a tag antes da hora. Também foi corrigido um travamento da interface quando `scrollIntoView` devolvia uma promessa.
+
+**Testes:** `tests/e2e/inspetor.py` (32 verificações).
+
+**Pendências da Fase 4:**
+- A especificidade é calculada de forma aproximada (cobre `:is`, `:not` e `:where` só pela soma simples).
+- Pseudo-elementos (`::before`, `::after`) e animações ainda não aparecem no painel.
+- Persistir uma edição no arquivo fica para a Fase 6, com mapeamento seguro.
 
 ## O que já existe (fase 3)
 
@@ -155,3 +182,54 @@ A [File System Access API](https://developer.chrome.com/docs/capabilities/web-ap
 2. **Mudanças externas e conflitos,** integrados ao comparador do histórico.
 3. **Reconexão,** permissão persistente, somente leitura e desvincular.
 4. **Ignorados configuráveis,** limites e polimento (status na barra, paleta de comandos e atalhos).
+
+## Módulo 8 — Mascotes Lúmen e Pólen
+
+### Objetivo
+
+Dois mascotes que fazem companhia enquanto a pessoa programa, no espírito do "Claude buddy": pequenos, simpáticos e discretos. Eles dão personalidade ao Poiesis e reagem ao que acontece no editor, sem atrapalhar o trabalho.
+
+### Ideia inicial
+
+- **Lúmen** e **Pólen** ficam num canto da interface (posição configurável) e podem ser escondidos a qualquer momento.
+- Reagem a eventos locais do editor: salvar, erro no console, verificação sem problemas, preview recarregado, muito tempo parado, fim de uma sessão longa (lembrete de pausa).
+- Falas curtas e ocasionais, nunca em sequência; dá para silenciar as falas e manter só as animações.
+- Uma dica rápida de vez em quando (atalhos, recursos pouco conhecidos), desligável.
+
+### Regras
+
+- **Desligável** nas Preferências, com opção de mostrar só um, os dois ou nenhum.
+- **Sem rede, sem telemetria:** tudo roda localmente, com as artes e as falas empacotadas na extensão.
+- Não cobre o editor nem o preview, não rouba o foco e respeita `prefers-reduced-motion` (sem animação, só troca de pose).
+- Acessível: as falas usam uma região `aria-live` educada, e o mascote pode ser ignorado pelo leitor de tela.
+- Leve: animação em CSS ou SVG, sem biblioteca pesada.
+
+### Em aberto
+
+- **Arte:** a ilustração dos dois (possivelmente feita pelo autor) e o estilo das poses.
+- **Personalidade** de cada um e como se diferenciam (por exemplo, um mais curioso e outro mais calmo).
+- O conjunto de eventos e falas da primeira versão.
+
+## Módulo 9 — Música de foco
+
+### Objetivo
+
+Um botão para tocar uma música de fundo relaxante, que ajuda na concentração.
+
+### Ideia inicial
+
+- Botão na barra superior (ou junto dos mascotes) para tocar e pausar, com volume e repetição.
+- **Desligado por padrão.** Só começa depois de um clique, conforme as regras de reprodução automática do navegador.
+- Entrada e saída suaves (*fade*), e pausa automática opcional quando a aba fica escondida.
+- A preferência de volume fica salva localmente.
+
+### Regras
+
+- A faixa (a definir) vem **empacotada na extensão**: sem streaming e sem nenhuma conexão externa, para manter a privacidade.
+- Só faixas com licença compatível (CC0, domínio público ou composição própria), registradas em `THIRD_PARTY_LICENSES.txt` quando for o caso.
+- Atenção ao tamanho do pacote: um arquivo comprimido (Opus/OGG) curto e que repete bem.
+
+### Em aberto
+
+- Qual música (ou quais, se houver mais de uma opção) e a licença.
+

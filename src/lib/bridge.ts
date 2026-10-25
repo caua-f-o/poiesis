@@ -6,6 +6,7 @@
  * e aqui conferimos versão, sessão, tipo e o formato de cada campo. */
 import type { LogLevel, Ser, SourceRef } from "./types";
 import { sanitizeEntry, type NetEntry } from "./net";
+import { parseInspect, type InspectMessage } from "./inspect";
 
 export const BRIDGE_VERSION = 1;
 
@@ -19,7 +20,8 @@ export type PreviewMessage =
   | { type: "navigate"; path: string; hash: string }
   | { type: "open"; href: string }
   | { type: "ready"; ms: number }
-  | { type: "net"; entry: NetEntry };
+  | { type: "net"; entry: NetEntry }
+  | { type: "inspect"; msg: InspectMessage };
 
 const LEVELS = new Set<LogLevel>(["log", "info", "warn", "error", "debug", "result", "input", "system"]);
 const MAX_ARGS = 100;
@@ -64,6 +66,10 @@ export function parsePreviewMessage(d: unknown, session = SESSION): PreviewMessa
     case "net": {
       const entry = sanitizeEntry(d.e);
       return entry ? { type: "net", entry } : null;
+    }
+    case "inspect": {
+      const msg = parseInspect(d);
+      return msg ? { type: "inspect", msg } : null;
     }
     case "ready":
       return typeof d.ms === "number" ? { type: "ready", ms: d.ms } : null;

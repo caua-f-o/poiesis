@@ -176,7 +176,27 @@ export function NetworkPanel({
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-md-outline-v pl-3 pr-2">
         {title}
-        <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+        <div className="flex-1" />
+        <Tip label="Nova requisição (console de APIs)">
+          <button className="md-btn md-btn-tonal h-7 shrink-0 px-2.5 text-[12px]" onClick={() => onRequest()} aria-label="Nova requisição">
+            <Icon name="send" size={16} />
+          </button>
+        </Tip>
+        <Tip label={mockErrors.length ? `Mocks — ${mockErrors.length} problema(s) no arquivo` : "Mocks"}>
+          <button className="md-btn md-btn-text h-7 shrink-0 gap-1 px-2 text-[12px]" onClick={onMocks} aria-label="Mocks">
+            <Icon name="dns" size={16} />
+            {activeMocks > 0 && <span className="rounded-full bg-md-primary px-1.5 text-[10px] font-bold text-md-on-primary">{activeMocks}</span>}
+            {mockErrors.length > 0 && <Icon name="error" size={14} className="text-[var(--rose)]" />}
+          </button>
+        </Tip>
+        <IconButton icon={reveal ? "visibility" : "visibility_off"} label={reveal ? "Mascarar dados sensíveis" : "Mostrar dados sensíveis (tokens, cookies)"} size="sm" on={reveal} onClick={() => setReveal(!reveal)} />
+        <IconButton icon="history_toggle_off" label={preserve ? "Não preservar ao recarregar" : "Preservar registro ao recarregar"} size="sm" on={preserve} onClick={() => onPreserve(!preserve)} />
+        <IconButton icon="download" label="Exportar HAR (dados sensíveis sempre mascarados)" size="sm" onClick={onExport} disabled={!entries.length} />
+        <IconButton icon="block" label="Limpar registro" size="sm" onClick={onClear} />
+        <IconButton icon="keyboard_arrow_down" label="Esconder painel" shortcut="Ctrl+J" size="sm" onClick={onClose} />
+      </div>
+
+        <div className="no-scrollbar flex h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-md-outline-v px-3">
         {(
           [
             ["all", "Tudo"],
@@ -200,25 +220,6 @@ export function NetworkPanel({
           className="ml-1 h-7 w-28 shrink-0 rounded-full bg-md-high px-3 text-[12px] text-md-on-surface outline-none placeholder:text-md-on-variant focus:w-44"
         />
         </div>
-        <Tip label="Nova requisição (console de APIs)">
-          <button className="md-btn md-btn-tonal h-7 shrink-0 px-2.5 text-[12px]" onClick={() => onRequest()} aria-label="Nova requisição">
-            <Icon name="send" size={16} />
-          </button>
-        </Tip>
-        <Tip label={mockErrors.length ? `Mocks — ${mockErrors.length} problema(s) no arquivo` : "Mocks"}>
-          <button className="md-btn md-btn-text h-7 shrink-0 gap-1 px-2 text-[12px]" onClick={onMocks} aria-label="Mocks">
-            <Icon name="dns" size={16} />
-            {activeMocks > 0 && <span className="rounded-full bg-md-primary px-1.5 text-[10px] font-bold text-md-on-primary">{activeMocks}</span>}
-            {mockErrors.length > 0 && <Icon name="error" size={14} className="text-[var(--rose)]" />}
-          </button>
-        </Tip>
-        <IconButton icon={reveal ? "visibility" : "visibility_off"} label={reveal ? "Mascarar dados sensíveis" : "Mostrar dados sensíveis (tokens, cookies)"} size="sm" on={reveal} onClick={() => setReveal(!reveal)} />
-        <IconButton icon="history_toggle_off" label={preserve ? "Não preservar ao recarregar" : "Preservar registro ao recarregar"} size="sm" on={preserve} onClick={() => onPreserve(!preserve)} />
-        <IconButton icon="download" label="Exportar HAR (dados sensíveis sempre mascarados)" size="sm" onClick={onExport} disabled={!entries.length} />
-        <IconButton icon="block" label="Limpar registro" size="sm" onClick={onClear} />
-        <IconButton icon="keyboard_arrow_down" label="Esconder painel" shortcut="Ctrl+J" size="sm" onClick={onClose} />
-      </div>
-
       <div className="flex min-h-0 flex-1">
         <div className={cn("min-h-0 overflow-y-auto", cur ? "w-[46%] border-r border-md-outline-v" : "flex-1")} role="listbox" aria-label="Requisições">
           {!shown.length && (

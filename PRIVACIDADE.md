@@ -1,6 +1,6 @@
 # Política de privacidade do Poiesis
 
-*Última atualização: 24 de outubro de 2026*
+*Última atualização: 25 de outubro de 2026*
 
 O Poiesis é um editor de código que roda inteiramente no seu navegador. **Ele não coleta, não envia e não vende nenhum dado seu.**
 
@@ -20,6 +20,7 @@ A extensão em si não faz nenhuma requisição de rede. As conexões que podem 
 - **O código que você escreve** roda numa página isolada (sandbox), sem acesso aos dados da extensão. Se o seu projeto carregar uma biblioteca de uma CDN, uma fonte do Google Fonts ou chamar uma API com `fetch`, essa requisição sai da sua página, como aconteceria se você abrisse o arquivo no navegador.
 - **O console de APIs** (painel Rede) só envia uma requisição quando você clica em "Enviar". Ela parte da página isolada do preview, como se a sua página a fizesse, sem cookies.
 - **O registro de rede** (o que a sua página pediu e recebeu) fica só na memória enquanto o Poiesis está aberto e nunca é salvo. Tokens e cookies aparecem mascarados. Se você exportar um HAR, os dados sensíveis saem mascarados. Mocks e respostas que você decidir guardar viram arquivos do seu projeto.
+- **O inspetor de elementos** só lê a página do preview, dentro do seu navegador. As edições feitas por ele são temporárias e não são salvas nem enviadas.
 - **Os links "Abrir no MDN"** nos cartões de definição abrem a documentação do MDN numa nova aba, só quando você clica.
 
 ## Permissões

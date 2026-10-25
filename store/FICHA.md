@@ -46,6 +46,11 @@ REDE E APIs
 • Mocks com latência e falhas simuladas — funcionam sem internet
 • Console de APIs para testar endpoints; tokens e cookies mascarados por padrão
 
+INSPETOR DE ELEMENTOS
+• Clique num elemento do preview e veja as regras CSS que se aplicam, os valores finais e o box model
+• Force :hover e :focus e teste mudanças temporárias; copie o CSS resultante quando gostar
+• Vá do elemento para a tag no HTML ou a regra no CSS, e do código para o elemento no preview
+
 HISTÓRICO LOCAL
 • Versões automáticas enquanto você trabalha e antes de excluir, importar ou substituir
 • Pontos de restauração com nome e nota
@@ -82,6 +87,7 @@ A complete web code editor in a Chrome tab: write HTML, CSS and JavaScript and s
 • Emmet, go to definition, project-wide rename, search and replace, Prettier formatting
 • 3,932 Material Symbols icons picker
 • Flicker-free live preview with phone/tablet modes, pop-out window and a real console with a REPL
+• Element inspector: pick in the preview, matched CSS rules, computed values, box model, forced states and temporary edits
 • Network panel: fetch/XHR log with diagnostics, offline mocks and an API console (secrets masked)
 • Local version history: automatic snapshots, named restore points, side-by-side diff and restore (no Git, no cloud)
 • Optional: edit a real folder on your computer directly, with external changes and conflict handling

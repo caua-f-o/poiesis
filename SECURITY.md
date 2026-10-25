@@ -12,11 +12,13 @@ O Poiesis executa código escrito pelo usuário e, às vezes, código de terceir
 - **Canal preview → editor:**
   - o editor só aceita mensagens da janela do iframe do preview;
   - cada mensagem traz versão e token da sessão;
-  - tipo, formato e tamanho de cada campo são conferidos (`src/lib/bridge.ts`, `src/lib/net.ts`).
+  - tipo, formato e tamanho de cada campo são conferidos (`src/lib/bridge.ts`, `src/lib/net.ts`, `src/lib/inspect.ts`).
 - **Canal editor → preview:**
-  - comandos (console, destaque, console de APIs) só são aceitos pelo runtime quando vêm da página sandbox;
+  - comandos (console, destaque, console de APIs, inspetor) só são aceitos pelo runtime quando vêm da página sandbox;
   - iframes de terceiros dentro da página do usuário não conseguem enviá-los.
 - **Exibição:** conteúdo vindo da página (logs, respostas de rede, Markdown) é exibido como texto ou passa pelo DOMPurify. Não há `innerHTML` com dados não confiáveis.
+- **Inspetor:** a seleção só escuta eventos da página enquanto está ativa; o contorno fica num shadow root fechado com HTML fixo; nomes de propriedade editados passam por filtro e os valores vão por `style.setProperty`. As edições são temporárias e nunca tocam nos arquivos.
+- **Montagem do preview:** nomes de arquivo e conteúdo do usuário entram de forma literal (sem padrões `$&`), com aspas, `-->` e `</style` escapados.
 - **Dados sensíveis:**
   - o registro de rede fica só na memória;
   - credenciais aparecem mascaradas por padrão e sempre na exportação;
@@ -26,4 +28,4 @@ O Poiesis executa código escrito pelo usuário e, às vezes, código de terceir
 
 ## Testes
 
-`pnpm build && pnpm test:e2e` inclui testes de segurança: mensagens forjadas, iframe de terceiro tentando executar código ou disparar requisições, resposta HTML maliciosa, URLs perigosas no console de APIs, mascaramento no HAR, inundação de mensagens e padrões `$&` no conteúdo.
+`pnpm build && pnpm test:e2e` inclui testes de segurança: mensagens forjadas, iframe de terceiro tentando executar código ou disparar requisições, resposta HTML maliciosa, URLs perigosas no console de APIs, mascaramento no HAR, inundação de mensagens, padrões `$&` no conteúdo, atributos maliciosos no inspetor e iframe de terceiro tentando ligar a seleção.

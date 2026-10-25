@@ -46,6 +46,13 @@ function svgToDataURL(svg: string) {
 
 const HAS_ESM = /(^|[\n;])\s*(import\s*[\w*{"'$]|export\s)/;
 
+/** Nome de arquivo dentro de atributo HTML: aspas e < > escapados. */
+const attrEsc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/** Nome de arquivo no comentário sourceURL: sem quebras de linha nem "<" (não fecha o <script>). */
+/** CSS dentro de <style>: um "</style" no conteúdo não pode fechar a tag. */
+const styleEsc = (css: string) => css.replace(/<\/(style)/gi, "<\\/$1");
+const urlComment = (s: string) => s.replace(/[\r\n<>\u2028\u2029]/g, "_");
+
 export function buildPage(project: Project, pageId: string | null, opts: BuildOptions): BuildResult {
   const files = project.files;
   const page =
@@ -109,7 +116,7 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
     const isModule = /type\s*=\s*["']?module/i.test(extraAttrs) || HAS_ESM.test(f.content);
     const code = isModule ? rewriteImports(f.content, dirName(f.name)) : f.content;
     const attrs = isModule && !/type\s*=/.test(extraAttrs) ? `${extraAttrs} type="module"` : extraAttrs;
-    return `<script${attrs} data-poiesis-file="${f.name}">${escapeScript(code)}\n//# sourceURL=${f.name}\n</script>`;
+    return `<script${attrs} data-poiesis-file="${attrEsc(f.name)}">${escapeScript(code)}\n//# sourceURL=${urlComment(f.name)}\n</script>`;
   };
 
   let html = page
@@ -138,7 +145,7 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
     const openLen = m.indexOf(">") + 1;
     const line = (html.slice(0, offset + openLen).match(/\n/g)?.length ?? 0) + 1;
     const code = type === "module" || HAS_ESM.test(body) ? rewriteImports(body, pageDir) : body;
-    return `<script${rawAttrs}>${"\n".repeat(line - 1)}${code}\n//# sourceURL=${page.name}\n</script>`;
+    return `<script${rawAttrs}>${"\n".repeat(line - 1)}${code}\n//# sourceURL=${urlComment(page.name)}\n</script>`;
   });
 
   // 2) <style> embutidos
@@ -153,8 +160,8 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
       const f = findFile(files, attrs.href, pageDir);
       if (f && f.kind === "css") {
         used.add(f.id);
-        const media = attrs.media ? ` media="${attrs.media}"` : "";
-        return `<style data-poiesis-file="${f.name}"${media}>\n${processCss(f.content, dirName(f.name))}\n</style>`;
+        const media = attrs.media ? ` media="${attrEsc(attrs.media)}"` : "";
+        return `<style data-poiesis-file="${attrEsc(f.name)}"${media}>\n${styleEsc(processCss(f.content, dirName(f.name)))}\n</style>`;
       }
       if (!/^(https?:)?\/\//i.test(attrs.href)) {
         const p = resolvePath(attrs.href, pageDir);
@@ -186,7 +193,7 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
   const anyEsm = jsFiles.some((f) => HAS_ESM.test(f.content)) || /type\s*=\s*["']?module/i.test(html);
   const modules: Record<string, string> = {};
   if (anyEsm) {
-    for (const f of jsFiles) modules[f.name] = rewriteImports(f.content, dirName(f.name)) + `\n//# sourceURL=${f.name}`;
+    for (const f of jsFiles) modules[f.name] = rewriteImports(f.content, dirName(f.name)) + `\n//# sourceURL=${urlComment(f.name)}`;
   }
 
   // 6) injeção automática dos CSS/JS não referenciados
@@ -195,7 +202,7 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
     const js = jsFiles.filter((f) => !used.has(f.id));
     if (css.length) {
       const block = css
-        .map((f) => `<style data-poiesis-file="${f.name}" data-poiesis-auto>\n${processCss(f.content, dirName(f.name))}\n</style>`)
+        .map((f) => `<style data-poiesis-file="${attrEsc(f.name)}" data-poiesis-auto>\n${styleEsc(processCss(f.content, dirName(f.name)))}\n</style>`)
         .join("\n");
       html = /<\/head\s*>/i.test(html) ? html.replace(/<\/head\s*>/i, () => `${block}\n</head>`) : block + "\n" + html;
     }
@@ -215,7 +222,7 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
   }
   const needRuntime = opts.console || !!opts.mocks?.length || anyEsm || Object.keys(vfs).some((k) => !/\.html?$/i.test(k));
   if (needRuntime) {
-    const cfg = { session: opts.session ?? "", net: { mocks: opts.mocks ?? [] }, console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null, storage: opts.storage ?? {} };
+    const cfg = { session: opts.session ?? "", page: page?.name ?? "", net: { mocks: opts.mocks ?? [] }, console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null, storage: opts.storage ?? {} };
     const json = JSON.stringify(cfg).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     const tag = `<script data-poiesis-runtime>${runtimeSrc.replace("/*__CFG__*/", () => json)}</script>`;
     if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, (h) => h + tag);

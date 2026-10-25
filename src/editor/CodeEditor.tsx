@@ -95,6 +95,8 @@ export interface EditorHandle {
   search(): void;
   comment(): void;
   getSelection(): string;
+  /** posição do cursor (offset no documento) */
+  cursorOffset(): number;
   /** prepara o menu de contexto a partir das coordenadas do clique */
   contextAt(x: number, y: number): MenuContext;
   run(action: EditorAction): Promise<void> | void;
@@ -435,6 +437,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
       v.focus();
     },
     search: () => view.current && openSearchPanel(view.current),
+    cursorOffset: () => view.current?.state.selection.main.head ?? 0,
     comment: () => view.current && toggleComment(view.current),
     getSelection: () => {
       const v = view.current;

@@ -35,12 +35,14 @@ interface Props {
   onFormat(): void;
   onRename(sym: Sym): void;
   onHighlight(selector: string): void;
+  /** inspeciona no preview o elemento HTML sob o cursor */
+  onInspect?(): void;
   onSearch(text: string): void;
   onPalette(): void;
   onIcon(): void;
 }
 
-export function EditorContextMenu({ editor, canFormat, children, onFormat, onRename, onHighlight, onSearch, onPalette, onIcon }: Props) {
+export function EditorContextMenu({ editor, canFormat, children, onFormat, onRename, onHighlight, onInspect, onSearch, onPalette, onIcon }: Props) {
   const [ctx, setCtx] = useState<MenuContext | null>(null);
   const run = (a: EditorAction) => () => {
     setTimeout(() => editor.current?.run(a), 0);
@@ -105,6 +107,14 @@ export function EditorContextMenu({ editor, canFormat, children, onFormat, onRen
                 <Icon name="target" size={19} /> Mostrar no preview
               </ContextMenuItem>
             )}
+            <ContextMenuSeparator />
+          </>
+        )}
+        {ctx?.lang === "html" && onInspect && (
+          <>
+            <ContextMenuItem onSelect={() => setTimeout(onInspect, 0)}>
+              <Icon name="arrow_selector_tool" size={19} /> Inspecionar este elemento no preview
+            </ContextMenuItem>
             <ContextMenuSeparator />
           </>
         )}

@@ -48,6 +48,12 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - **Mocks** em `poiesis.mocks.json`: respostas simuladas com latência, falha ou timeout, que funcionam offline. Dá para criar um mock a partir de uma resposta real.
 - **Console de APIs** para montar e repetir requisições, enviadas de dentro do preview, como a sua página faria.
 
+**Inspetor de elementos** (aba "Elementos", `Ctrl+Shift+C`):
+- Clique num elemento do preview para selecioná-lo, sem que o clique chegue à página. A árvore DOM marca os elementos criados por script.
+- Regras que casam com o elemento, com arquivo e especificidade, declarações vencidas riscadas, valores calculados, variáveis CSS e box model.
+- Force `:hover`, `:focus` e outros estados, e teste mudanças temporárias: nada vai para o arquivo até você copiar o CSS gerado.
+- "Ver no código" leva à tag no HTML ou à regra no CSS; no editor HTML, `Ctrl+Shift+C` seleciona no preview o elemento sob o cursor.
+
 **Pasta no computador** (opcional; ligue em Preferências):
 - Abra uma pasta real do computador ou vincule um projeto a uma pasta. As edições são gravadas direto nos arquivos, só os que mudaram.
 - Criar, renomear e excluir no explorador também valem na pasta. `node_modules`, `.git`, `dist`, o `.gitignore` e o que você configurar ficam de fora.
@@ -84,10 +90,11 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 | Barra lateral / console | `Ctrl+B` / `Ctrl+J` |
 | Alternar layout | `Ctrl+\` |
 | Recarregar preview | `Ctrl+R` |
+| Inspecionar elemento | `Ctrl+Shift+C` |
 
 ## Roadmap
 
-Próximos passos (pasta local no computador, painel de Network e APIs, inspetor visual e Extension Studio) em [`ROADMAP.md`](ROADMAP.md).
+Próximos passos (Extension Studio, integração entre os módulos, os mascotes Lúmen e Pólen e a música de foco) em [`ROADMAP.md`](ROADMAP.md).
 
 ## Privacidade
 

@@ -61,6 +61,16 @@
       if (d.type === "render") render(String(d.html || ""), !!d.hard);
       else if (d.type === "eval" && current) current.contentWindow.postMessage({ __poiesisEval: String(d.code) }, "*");
       else if (d.type === "highlight" && current) current.contentWindow.postMessage({ __poiesisHighlight: String(d.selector) }, "*");
+      else if (d.type === "inspect" && current && d.cmd && typeof d.cmd === "object") {
+        // repassa só campos simples; o runtime valida de novo
+        var c = d.cmd, out = {};
+        ["op", "prop", "value", "state", "q"].forEach(function (k) { if (c[k] != null) out[k] = String(c[k]).slice(0, 4000); });
+        ["id", "rule"].forEach(function (k) { if (c[k] != null) out[k] = Number(c[k]); });
+        ["important", "on", "reselect"].forEach(function (k) { if (c[k] != null) out[k] = !!c[k]; });
+        if (c.enabled === true || c.enabled === false) out.enabled = c.enabled;
+        if (Array.isArray(c.path)) out.path = c.path.slice(0, 200).map(function (x) { return { tag: String(x && x.tag || "").slice(0, 40), i: Number(x && x.i) || 0 }; });
+        current.contentWindow.postMessage({ __poiesisInspect: out }, "*");
+      }
       else if (d.type === "net-send" && current && d.req && typeof d.req === "object") {
         // só campos simples atravessam (o runtime valida de novo)
         var q = d.req;

@@ -43,6 +43,8 @@ import { EditorContextMenu, symLabel } from "@/components/EditorContextMenu";
 import { Preview, type PreviewHandle } from "@/components/Preview";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { MocksDialog, NetworkPanel, RequestDialog, type NetRequest } from "@/components/NetworkPanel";
+import { InspectorPanel, emptyInspector, type InspectorState } from "@/components/InspectorPanel";
+import { pathToSource, ruleInCss, sourceToPath, type MatchedRule, type NodeInfo, type PathStep } from "@/lib/inspect";
 import { MOCKS_FILE, NET_LIMITS, parseMocks, stringifyMocks, toHar, type MockRule, type MocksConfig, type NetEntry } from "@/lib/net";
 import { StatusBar } from "@/components/StatusBar";
 import { AssetView } from "@/components/AssetView";
@@ -141,6 +143,10 @@ export default function App() {
   const [netLogs, setNetLogs] = useState<Record<string, NetEntry[]>>({});
   const [reqDialog, setReqDialog] = useState<{ open: boolean; prefill?: NetRequest }>({ open: false });
   const [mocksOpen, setMocksOpen] = useState(false);
+  const [insp, setInsp] = useState<InspectorState>(emptyInspector);
+  /** caminho do elemento selecionado, para reselecionar depois que o preview recarrega */
+  const inspPath = useRef<PathStep[] | null>(null);
+  const uiBottomRef = useRef("console");
   const netQueue = useRef<[string, NetEntry][]>([]);
   const netFlush = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchSeed, setSearchSeed] = useState<{ q: string; n: number } | null>(null);
@@ -449,7 +455,25 @@ export default function App() {
             }, 80);
           break;
         }
+        case "inspect": {
+          const m = d.msg;
+          if (m.ev === "children") setInsp((st) => (m.data.id === 0 ? { ...st, roots: m.data.nodes, children: {} } : { ...st, children: { ...st.children, [m.data.id]: m.data.nodes } }));
+          else if (m.ev === "node") {
+            inspPath.current = m.data.path;
+            setInsp((st) => ({ ...st, info: m.data, picking: false, error: null }));
+            if (uiBottomRef.current !== "elements") setUi((u: typeof ui) => ({ ...u, bottom: "elements" }));
+          } else if (m.ev === "found") setInsp((st) => ({ ...st, found: m.data }));
+          else if (m.ev === "stopped") setInsp((st) => ({ ...st, picking: false }));
+          else if (m.ev === "error") setInsp((st) => ({ ...st, error: m.data.message || "Erro no inspetor", picking: false }));
+          break;
+        }
         case "ready":
+          // preview recarregou: árvore nova; reseleciona o mesmo elemento se der
+          setInsp((st) => ({ ...emptyInspector(), info: null, error: st.info && !inspPath.current ? "O elemento selecionado era dinâmico e não pôde ser reencontrado." : null }));
+          if (uiBottomRef.current === "elements") {
+            preview.current?.inspect({ op: "root" });
+            if (inspPath.current) preview.current?.inspect({ op: "byPath", path: inspPath.current });
+          }
           setBusy(false);
           setLoadMs(d.ms ?? null);
           break;
@@ -784,6 +808,59 @@ export default function App() {
       },
       duration: 8000,
     });
+  };
+
+  /* ---------------- inspetor ---------------- */
+  uiBottomRef.current = ui.bottom;
+  const inspCmd = (c: Record<string, unknown>) => {
+    if (c.op === "pick") setInsp((st) => ({ ...st, picking: true, error: null }));
+    if (c.op === "stop") setInsp((st) => ({ ...st, picking: false }));
+    preview.current?.inspect(c);
+  };
+  const showElements = () => {
+    setUi((u: typeof ui) => ({ ...u, bottom: "elements" }));
+    if (!settings?.console) updateSettings({ console: true });
+  };
+  const startPick = () => {
+    showElements();
+    inspCmd({ op: insp.picking ? "stop" : "pick" });
+  };
+  const offsetToLineCol = (text: string, off: number) => {
+    const before = text.slice(0, off);
+    const line = (before.match(/\n/g)?.length ?? 0) + 1;
+    return { line, col: off - before.lastIndexOf("\n") };
+  };
+  const gotoElementSource = (info: NodeInfo) => {
+    const page = built.page;
+    if (!page || !info.path) return void toast.warning("Este elemento não existe no HTML-fonte", { description: "Foi criado por script depois do carregamento." });
+    const hit = pathToSource(page.content, info.path);
+    if (!hit) return void toast.warning("Não foi possível achar este elemento no código com segurança", { description: "O HTML pode ter sido alterado por script ou corrigido pelo navegador." });
+    const { line, col } = offsetToLineCol(page.content, hit.from);
+    jumpTo(page.id, line, col);
+  };
+  const openRule = (r: MatchedRule) => {
+    if (!project) return;
+    const f = findFile(project.files, r.file) ?? (built.page && r.file === built.page.name ? built.page : undefined);
+    if (!f) return void toast.warning(`"${r.file}" não é um arquivo do projeto`, { description: "A regra veio de uma folha externa." });
+    const hit = ruleInCss(f.content, r.selector);
+    if (!hit) return void toast.warning("Regra não encontrada no arquivo", { description: "Pode ter vindo de um @import ou ter sido criada por script." });
+    const { line, col } = offsetToLineCol(f.content, hit.from);
+    jumpTo(f.id, line, col);
+  };
+  const inspectAtCursor = () => {
+    if (!activeFile || activeFile.kind !== "html" || !editor.current) return;
+    if (built.page?.id !== activeFile.id) setPreviewPage(activeFile.id);
+    const path = sourceToPath(activeFile.content, editor.current.cursorOffset());
+    if (!path) return void toast("Coloque o cursor dentro de uma tag HTML");
+    showElements();
+    inspPath.current = path;
+    setTimeout(() => inspCmd({ op: "byPath", path }), built.page?.id !== activeFile.id ? 900 : 0);
+  };
+  const copyText = (text: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success("CSS copiado", { description: "Cole no arquivo para tornar a mudança permanente." }),
+      () => toast.error("Não foi possível copiar")
+    );
   };
 
   /* ---------------- rede e APIs ---------------- */
@@ -1164,6 +1241,12 @@ export default function App() {
     } else if (e.altKey && e.shiftKey && k === "f") {
       e.preventDefault();
       format();
+    } else if (mod && e.shiftKey && k === "c" && !inEditor) {
+      e.preventDefault();
+      startPick();
+    } else if (mod && e.shiftKey && k === "c" && inEditor && activeFile?.kind === "html") {
+      e.preventDefault();
+      inspectAtCursor();
     } else if (e.altKey && !mod && !e.shiftKey && k === "i") {
       e.preventDefault();
       openSymbols();
@@ -1225,6 +1308,8 @@ export default function App() {
     ? [
         { id: "run", group: "Executar", label: "Executar agora", icon: "play_arrow", shortcut: "Ctrl ↵", run: () => runNow(true) },
         { id: "net", group: "Rede", label: "Mostrar painel de rede", icon: "lan", run: showNetwork },
+        { id: "insp", group: "Inspetor", label: "Selecionar elemento no preview", icon: "arrow_selector_tool", shortcut: "Ctrl Shift C", run: startPick },
+        { id: "insp-show", group: "Inspetor", label: "Mostrar elementos", icon: "account_tree", run: showElements },
         { id: "net-req", group: "Rede", label: "Nova requisição (console de APIs)", icon: "send", run: () => setReqDialog({ open: true }) },
         { id: "net-mocks", group: "Rede", label: "Editar mocks", icon: "dns", run: () => setMocksOpen(true) },
         ...(folder.enabled
@@ -1303,6 +1388,23 @@ export default function App() {
   const showPreview = settings.layout !== "editor";
   const dir = settings.layout === "stack" ? "col" : "row";
 
+  const bottomTabs = (
+            <div className="md-seg mr-2 h-7" role="tablist" aria-label="Painel inferior">
+              {(
+                [
+                  ["console", "Console", "terminal"],
+                  ["elements", "Elementos", "arrow_selector_tool"],
+                  ["network", "Rede", "lan"],
+                ] as const
+              ).map(([k, label, icon]) => (
+                <button key={k} role="tab" aria-selected={ui.bottom === k} data-on={ui.bottom === k} onClick={() => setUi((u: typeof ui) => ({ ...u, bottom: k }))} className="!px-2.5 text-[12px]">
+                  <Icon name={icon} size={15} /> {label}
+                  {k === "network" && netEntries.length > 0 && <span className="text-[10.5px] tabular-nums opacity-70">{netEntries.length}</span>}
+                </button>
+              ))}
+            </div>
+          );
+
   const editorPane = (
     <div className="md-pane flex h-full flex-col" style={{ background: "var(--syn-bg)" }}>
       {folderStatus && folderStatus.state !== "linked" && (
@@ -1354,6 +1456,7 @@ export default function App() {
             canFormat={!!activeFile && canFormat(activeFile.kind, activeFile.name)}
             onFormat={format}
             onRename={(s) => askRename(s)}
+            onInspect={inspectAtCursor}
             onHighlight={(sel) => {
               if (!settings.console) updateSettings({ console: true });
               preview.current?.highlight(sel);
@@ -1450,29 +1553,31 @@ export default function App() {
               openPopout();
             }}
             onToggleConsole={() => updateSettings({ console: !settings.console })}
+            picking={insp.picking}
+            onPick={startPick}
             onExportHtml={exportHtml}
           />
         </div>
       }
       b={
         <div className="md-pane h-full">
-{ui.bottom === "network" ? (
+{ui.bottom === "elements" ? (
+            <InspectorPanel
+              title={bottomTabs}
+              st={insp}
+              cmd={inspCmd}
+              onClose={() => updateSettings({ console: false })}
+              onGotoSource={gotoElementSource}
+              onOpenRule={openRule}
+              onCopy={copyText}
+              onDiscard={() => {
+                preview.current?.reload();
+                toast("Mudanças temporárias descartadas");
+              }}
+            />
+          ) : ui.bottom === "network" ? (
             <NetworkPanel
-              title={(
-            <div className="md-seg mr-2 h-7" role="tablist" aria-label="Painel inferior">
-              {(
-                [
-                  ["console", "Console", "terminal"],
-                  ["network", "Rede", "lan"],
-                ] as const
-              ).map(([k, label, icon]) => (
-                <button key={k} role="tab" aria-selected={ui.bottom === k} data-on={ui.bottom === k} onClick={() => setUi((u: typeof ui) => ({ ...u, bottom: k }))} className="!px-2.5 text-[12px]">
-                  <Icon name={icon} size={15} /> {label}
-                  {k === "network" && netEntries.length > 0 && <span className="text-[10.5px] tabular-nums opacity-70">{netEntries.length}</span>}
-                </button>
-              ))}
-            </div>
-          )}
+              title={bottomTabs}
               entries={netEntries}
               mocks={mocksParsed?.config ?? null}
               mockErrors={mocksParsed?.errors ?? []}
@@ -1488,21 +1593,7 @@ export default function App() {
             />
           ) : (
           <ConsolePanel
-            title={(
-            <div className="md-seg mr-2 h-7" role="tablist" aria-label="Painel inferior">
-              {(
-                [
-                  ["console", "Console", "terminal"],
-                  ["network", "Rede", "lan"],
-                ] as const
-              ).map(([k, label, icon]) => (
-                <button key={k} role="tab" aria-selected={ui.bottom === k} data-on={ui.bottom === k} onClick={() => setUi((u: typeof ui) => ({ ...u, bottom: k }))} className="!px-2.5 text-[12px]">
-                  <Icon name={icon} size={15} /> {label}
-                  {k === "network" && netEntries.length > 0 && <span className="text-[10.5px] tabular-nums opacity-70">{netEntries.length}</span>}
-                </button>
-              ))}
-            </div>
-          )}
+            title={bottomTabs}
             logs={logs}
             onClear={() => setLogs([])}
             onEval={evalCode}
