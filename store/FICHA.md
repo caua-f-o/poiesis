@@ -41,6 +41,11 @@ PREVIEW E CONSOLE
 • Console de verdade com objetos expansíveis e um campo para rodar JavaScript na página
 • localStorage, sessionStorage, módulos ES e fetch de arquivos do projeto funcionam no preview
 
+REDE E APIs
+• Veja cada fetch/XHR da página: status, tempo, cabeçalhos e resposta, com diagnóstico de CORS, offline e timeout
+• Mocks com latência e falhas simuladas — funcionam sem internet
+• Console de APIs para testar endpoints; tokens e cookies mascarados por padrão
+
 HISTÓRICO LOCAL
 • Versões automáticas enquanto você trabalha e antes de excluir, importar ou substituir
 • Pontos de restauração com nome e nota
@@ -77,6 +82,7 @@ A complete web code editor in a Chrome tab: write HTML, CSS and JavaScript and s
 • Emmet, go to definition, project-wide rename, search and replace, Prettier formatting
 • 3,932 Material Symbols icons picker
 • Flicker-free live preview with phone/tablet modes, pop-out window and a real console with a REPL
+• Network panel: fetch/XHR log with diagnostics, offline mocks and an API console (secrets masked)
 • Local version history: automatic snapshots, named restore points, side-by-side diff and restore (no Git, no cloud)
 • Optional: edit a real folder on your computer directly, with external changes and conflict handling
 • Multiple projects with folders, import/export (.zip or single HTML), JSON, Markdown and text files

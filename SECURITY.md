@@ -1,0 +1,29 @@
+# Segurança
+
+## Como relatar uma vulnerabilidade
+
+Use **"Report a vulnerability"** na aba *Security* do repositório no GitHub, que abre um relato privado. Não abra uma issue pública para vulnerabilidades. Relatos são respondidos assim que possível. Se confirmado, a correção sai numa nova versão e o relato recebe crédito, se você quiser.
+
+## Modelo de ameaças (resumo)
+
+O Poiesis executa código escrito pelo usuário e, às vezes, código de terceiros que esse código carrega (CDNs, iframes, APIs). O princípio é: **nada que vem da página do preview é confiável.**
+
+- **Isolamento:** o preview roda numa página `sandbox` declarada no manifesto, com origem opaca (`null`) e sem acesso às APIs `chrome.*` nem aos dados da extensão. As páginas da extensão mantêm a CSP padrão do Manifest V3 (sem `eval`, sem scripts remotos).
+- **Canal preview → editor:**
+  - o editor só aceita mensagens da janela do iframe do preview;
+  - cada mensagem traz versão e token da sessão;
+  - tipo, formato e tamanho de cada campo são conferidos (`src/lib/bridge.ts`, `src/lib/net.ts`).
+- **Canal editor → preview:**
+  - comandos (console, destaque, console de APIs) só são aceitos pelo runtime quando vêm da página sandbox;
+  - iframes de terceiros dentro da página do usuário não conseguem enviá-los.
+- **Exibição:** conteúdo vindo da página (logs, respostas de rede, Markdown) é exibido como texto ou passa pelo DOMPurify. Não há `innerHTML` com dados não confiáveis.
+- **Dados sensíveis:**
+  - o registro de rede fica só na memória;
+  - credenciais aparecem mascaradas por padrão e sempre na exportação;
+  - nada é enviado a servidores do Poiesis (não existem).
+- **Pasta no computador:** acesso concedido pelo usuário, pasta por pasta. O Poiesis nunca apaga recursivamente o que não mostra, e não sobrescreve arquivo alterado por outro programa (vira conflito, com as duas versões no histórico).
+- **Permissões:** só `storage` e `unlimitedStorage`.
+
+## Testes
+
+`pnpm build && pnpm test:e2e` inclui testes de segurança: mensagens forjadas, iframe de terceiro tentando executar código ou disparar requisições, resposta HTML maliciosa, URLs perigosas no console de APIs, mascaramento no HAR, inundação de mensagens e padrões `$&` no conteúdo.

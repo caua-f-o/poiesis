@@ -5,6 +5,7 @@
  * Nada é confiável por padrão: a origem (janela do iframe sandbox) é conferida no App,
  * e aqui conferimos versão, sessão, tipo e o formato de cada campo. */
 import type { LogLevel, Ser, SourceRef } from "./types";
+import { sanitizeEntry, type NetEntry } from "./net";
 
 export const BRIDGE_VERSION = 1;
 
@@ -17,7 +18,8 @@ export type PreviewMessage =
   | { type: "storage"; data: Record<string, string> }
   | { type: "navigate"; path: string; hash: string }
   | { type: "open"; href: string }
-  | { type: "ready"; ms: number };
+  | { type: "ready"; ms: number }
+  | { type: "net"; entry: NetEntry };
 
 const LEVELS = new Set<LogLevel>(["log", "info", "warn", "error", "debug", "result", "input", "system"]);
 const MAX_ARGS = 100;
@@ -59,6 +61,10 @@ export function parsePreviewMessage(d: unknown, session = SESSION): PreviewMessa
       return str(d.path, 2048) && (d.hash === undefined || str(d.hash, 2048)) ? { type: "navigate", path: d.path, hash: (d.hash as string) ?? "" } : null;
     case "open":
       return str(d.href, 4096) ? { type: "open", href: d.href } : null;
+    case "net": {
+      const entry = sanitizeEntry(d.e);
+      return entry ? { type: "net", entry } : null;
+    }
     case "ready":
       return typeof d.ms === "number" ? { type: "ready", ms: d.ms } : null;
     default:

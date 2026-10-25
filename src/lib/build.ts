@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2026 Cauã F. O.
 import runtimeSrc from "./runtime.js?raw";
+import type { MockRule } from "./net";
 import type { PFile, Project } from "./types";
 import { dirName, findFile, resolvePath } from "./files";
 
@@ -12,6 +13,8 @@ export interface BuildOptions {
   storage?: Record<string, string>;
   /** token da sessão do editor (ver bridge.ts) */
   session?: string;
+  /** regras de mock ativas (de poiesis.mocks.json) */
+  mocks?: MockRule[];
 }
 
 export interface BuildResult {
@@ -160,7 +163,7 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
       return m;
     }
     const url = assetURL(attrs.href, pageDir);
-    return url ? m.replace(attrs.href, url) : m;
+    return url ? m.replace(attrs.href, () => url) : m;
   });
 
   // 4) atributos que apontam para assets
@@ -194,11 +197,11 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
       const block = css
         .map((f) => `<style data-poiesis-file="${f.name}" data-poiesis-auto>\n${processCss(f.content, dirName(f.name))}\n</style>`)
         .join("\n");
-      html = /<\/head\s*>/i.test(html) ? html.replace(/<\/head\s*>/i, `${block}\n</head>`) : block + "\n" + html;
+      html = /<\/head\s*>/i.test(html) ? html.replace(/<\/head\s*>/i, () => `${block}\n</head>`) : block + "\n" + html;
     }
     if (js.length) {
       const block = js.map((f) => jsTag(f, " data-poiesis-auto")).join("\n");
-      html = /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>(?![\s\S]*<\/body)/i, `${block}\n</body>`) : html + "\n" + block;
+      html = /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>(?![\s\S]*<\/body)/i, () => `${block}\n</body>`) : html + "\n" + block;
     }
   }
 
@@ -210,11 +213,11 @@ export function buildPage(project: Project, pageId: string | null, opts: BuildOp
     vfs[f.name] = entry;
     vfs[f.name.toLowerCase()] = entry;
   }
-  const needRuntime = opts.console || anyEsm || Object.keys(vfs).some((k) => !/\.html?$/i.test(k));
+  const needRuntime = opts.console || !!opts.mocks?.length || anyEsm || Object.keys(vfs).some((k) => !/\.html?$/i.test(k));
   if (needRuntime) {
-    const cfg = { session: opts.session ?? "", console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null, storage: opts.storage ?? {} };
+    const cfg = { session: opts.session ?? "", net: { mocks: opts.mocks ?? [] }, console: opts.console, dir: pageDir, files: vfs, modules: anyEsm ? modules : null, storage: opts.storage ?? {} };
     const json = JSON.stringify(cfg).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
-    const tag = `<script data-poiesis-runtime>${runtimeSrc.replace("/*__CFG__*/", json)}</script>`;
+    const tag = `<script data-poiesis-runtime>${runtimeSrc.replace("/*__CFG__*/", () => json)}</script>`;
     if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, (h) => h + tag);
     else if (/<html\b[^>]*>/i.test(html)) html = html.replace(/<html\b[^>]*>/i, (h) => h + tag);
     else if (/<!doctype[^>]*>/i.test(html)) html = html.replace(/<!doctype[^>]*>/i, (h) => h + tag);

@@ -309,7 +309,7 @@ function tagFileOptions(typed: string): Completion[] {
     if (typed && !tag.startsWith(typed.toLowerCase())) return;
     const p = relPath(f.name, dir).replace(/[$}\\]/g, "\\$&");
     out.push(
-      snip(template.replace(/@P/g, p), {
+      snip(template.replace(/@P/g, () => p), {
         label: `${tag} ${f.name.split("/").pop()}`,
         displayLabel: `${tag} → ${relPath(f.name, dir)}`,
         detail,

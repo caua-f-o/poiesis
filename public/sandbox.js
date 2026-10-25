@@ -61,6 +61,11 @@
       if (d.type === "render") render(String(d.html || ""), !!d.hard);
       else if (d.type === "eval" && current) current.contentWindow.postMessage({ __poiesisEval: String(d.code) }, "*");
       else if (d.type === "highlight" && current) current.contentWindow.postMessage({ __poiesisHighlight: String(d.selector) }, "*");
+      else if (d.type === "net-send" && current && d.req && typeof d.req === "object") {
+        // só campos simples atravessam (o runtime valida de novo)
+        var q = d.req;
+        current.contentWindow.postMessage({ __poiesisNetSend: { method: String(q.method || ""), url: String(q.url || ""), headers: Array.isArray(q.headers) ? q.headers.slice(0, 50).map(function (h) { return [String(h[0]), String(h[1])]; }) : [], body: q.body == null ? null : String(q.body), timeout: Number(q.timeout) || 30000 } }, "*");
+      }
       return;
     }
     if (d.__poiesis) {

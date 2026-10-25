@@ -782,3 +782,8 @@
   .pz-merge .cm-chunkButtons button[name="accept"] { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
   .pz-merge .cm-chunkButtons button[name="reject"] { background: var(--md-primary); color: var(--md-on-primary); }
 }
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}

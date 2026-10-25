@@ -11,7 +11,7 @@ Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos m
 | **0 — Fundação** | Armazenamento em IndexedDB (um registro por projeto, gravação incremental e atômica), migração do formato antigo, indicador de espaço, canal do preview versionado e validado, testes E2E no repositório | ✅ 2.4.0 |
 | **1 — Histórico local** (módulo 6) | Snapshots por hash, automáticos e manuais, pontos antes de operações destrutivas, linha do tempo, comparador lado a lado e em linha, restauração de trecho, arquivo ou projeto, retenção, exportar e importar | ✅ 2.4.0 |
 | **2 — Pasta local** (módulo 7) | Editar diretamente uma pasta do computador, como opção nas preferências | ✅ 2.5.0 |
-| **3 — Network MVP** (módulo 4) | Captura de `fetch`/XHR do preview, mocks locais, latência e erros simulados | Planejado |
+| **3 — Network MVP** (módulo 4) | Captura de `fetch`/XHR do preview, mocks locais, latência e erros simulados | ✅ 2.6.0 |
 | **4 — Inspetor MVP** (módulo 1) | Seleção no preview, árvore DOM, estilos computados, box model, edição temporária | Planejado |
 | **5 — Extension Studio MVP** (módulo 5) | Templates MV3, editor de manifesto sincronizado, validação e exportação em ZIP | Planejado |
 | **6 — Integração avançada** | Edição persistente pelo inspetor (com mapeamento seguro), fixtures, mocks de `chrome.*`, snapshots coordenados entre módulos | Planejado |
@@ -45,6 +45,35 @@ O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runt
 **Pendências da Fase 1:**
 - Filtro de "segredos conhecidos" (por exemplo `.env`) nos snapshots: hoje o limite por tamanho de arquivo cobre o caso dos binários grandes.
 - Recuperar um projeto excluído direto pelo histórico: hoje o histórico dele fica guardado até ser limpo, mas não há botão para recriar o projeto.
+
+## O que já existe (fase 3)
+
+**Painel Rede** (aba ao lado do Console; `src/lib/net.ts`, instrumentação em `src/lib/runtime.js`, `src/components/NetworkPanel.tsx`):
+
+- **Registro:** `fetch`, XHR e `sendBeacon` com método, URL, status, duração, tamanho, origem (rede, arquivo do projeto ou mock) e onde foi chamado (`arquivo:linha`, clicável).
+  - Recursos carregados por tags (`<img>`, `<script>`, CSS…) e WebSockets aparecem **marcados como observados sem detalhes**, porque o navegador não expõe cabeçalhos nem corpo deles.
+  - Filtros por tipo, mocks, erros e texto.
+  - O registro fica só na memória, por projeto, com no máximo 500 entradas, e não passa de um projeto para outro. Ele é limpo a cada execução, a menos que "Preservar" esteja ligado.
+- **Detalhes:** resumo com diagnóstico, cabeçalhos, parâmetros e corpo enviados, e resposta (JSON formatado e realçado; texto puro).
+  - O diagnóstico separa provável CORS (explicando que a origem do preview é `null`), sem conexão, timeout, cancelamento, HTTP 4xx/5xx, resposta opaca e erro simulado.
+- **XHR também lê arquivos do projeto** (antes só o `fetch` lia), simulando o ciclo de eventos completo.
+- **Mocks** em `poiesis.mocks.json`, um arquivo do projeto, então entram no histórico e na pasta vinculada:
+  - método, padrão de URL (`*` e `**`, sem regex do usuário), status, cabeçalhos, corpo literal ou vindo de arquivo do projeto (fixture), latência de até 30 s, falha de rede ou timeout;
+  - funcionam offline, em `fetch` e XHR, e respeitam o `AbortController`;
+  - editor visual ou JSON direto, e o JSON é validado (regras inválidas são apontadas e descartadas);
+  - "Criar mock" a partir de uma resposta real grava o corpo em `mocks/…json` e cria a regra. Só o corpo e o `Content-Type` são guardados.
+- **Console de APIs:** monta uma requisição (método, URL, cabeçalhos, corpo, timeout) que a **página do preview** envia, valendo CORS e mocks, sem nenhuma permissão nova. Também dá para repetir qualquer requisição do registro.
+- **Exportação HAR 1.2**, sempre com dados sensíveis mascarados.
+
+**Segurança desta fase:**
+- Cada registro que chega da página passa por validação de tipo, tamanho e formato (`sanitizeEntry`). Os corpos são limitados a 256 KB, com aviso de truncado.
+- Tudo o que vem da página é exibido como texto: nenhum `innerHTML`. Isso é testado com uma resposta HTML maliciosa.
+- `Authorization`, `Cookie`, `Set-Cookie`, chaves de API, tokens na URL e campos como `password`/`token` em corpos JSON ou de formulário aparecem mascarados por padrão (o olho revela só na sessão) e sempre mascarados no HAR. Valores sensíveis digitados no console de APIs ficam em campo de senha.
+- O console de APIs aceita só `http(s)` ou caminhos do projeto (recusa `javascript:`, `data:`, `chrome-extension:`…) e métodos conhecidos, e envia `credentials: "omit"`. A ordem chega pelo sandbox, que repassa só campos simples, e o runtime só aceita da janela pai (iframes de terceiros na página não conseguem disparar).
+- As mensagens de rede são aplicadas em lote, então uma página que dispara milhares de requisições não trava o editor.
+- **Correção encontrada na revisão:** conteúdo com `$&`, `$'` ou `` $` `` (em arquivos, mocks ou SVG) era interpretado como padrão de substituição ao montar o preview e ao substituir em todo o projeto. Agora a inserção é sempre literal.
+
+**Testes:** `tests/e2e/rede.py` (46 verificações, com a "internet" simulada pelo Playwright).
 
 ## O que já existe (fase 2)
 

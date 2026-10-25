@@ -41,6 +41,13 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - Restauração de um trecho, de um arquivo ou do projeto inteiro, sempre com volta.
 - Exportar e importar com verificação por hash.
 
+**Rede e APIs** (aba "Rede" ao lado do Console):
+- Registra `fetch` e XHR com status, tempo, cabeçalhos, corpo e de onde vieram. Recursos como `<img>` e `<script>` aparecem sem detalhes, porque o navegador não os expõe.
+- Diagnóstico que separa CORS, sem conexão, timeout e erro HTTP.
+- Tokens, cookies e senhas ficam mascarados por padrão e sempre no HAR exportado.
+- **Mocks** em `poiesis.mocks.json`: respostas simuladas com latência, falha ou timeout, que funcionam offline. Dá para criar um mock a partir de uma resposta real.
+- **Console de APIs** para montar e repetir requisições, enviadas de dentro do preview, como a sua página faria.
+
 **Pasta no computador** (opcional; ligue em Preferências):
 - Abra uma pasta real do computador ou vincule um projeto a uma pasta. As edições são gravadas direto nos arquivos, só os que mudaram.
 - Criar, renomear e excluir no explorador também valem na pasta. `node_modules`, `.git`, `dist`, o `.gitignore` e o que você configurar ficam de fora.

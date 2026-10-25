@@ -78,7 +78,9 @@ export function SearchPanel({ files, seed, onJump, onReplaceAll }: Props) {
 
   const replaceAll = () => {
     if (!re || !total) return;
-    const changes = results.map((r) => ({ id: r.file.id, content: r.file.content.replace(new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g"), rep) }));
+    const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+    // sem regex, o texto de substituição é literal ("$&" não vira o trecho encontrado)
+    const changes = results.map((r) => ({ id: r.file.id, content: rx ? r.file.content.replace(g, rep) : r.file.content.replace(g, () => rep) }));
     onReplaceAll(changes, total);
   };
 

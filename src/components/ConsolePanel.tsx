@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2026 Cauã F. O.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LogEntry, LogLevel, Ser } from "@/lib/types";
 import { Icon } from "./Icon";
 import { IconButton } from "./md";
@@ -160,7 +160,7 @@ interface Props {
   knownFile(name: string): boolean;
 }
 
-export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile }: Props) {
+export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile, title }: Props & { title?: ReactNode }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [input, setInput] = useState("");
   const hist = useRef<string[]>([]);
@@ -200,7 +200,8 @@ export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-md-outline-v pl-4 pr-2">
-        <span className="md-title-s mr-2">Console</span>
+        {title ?? <span className="md-title-s mr-2">Console</span>}
+        <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
         {(
           [
             ["all", "Tudo", null],
@@ -217,7 +218,7 @@ export function ConsolePanel({ logs, onClear, onEval, onJump, onClose, knownFile
             )}
           </button>
         ))}
-        <div className="flex-1" />
+        </div>
         <IconButton icon="block" label="Limpar console" shortcut="Ctrl+L" size="sm" onClick={onClear} />
         <IconButton icon="keyboard_arrow_down" label="Esconder console" shortcut="Ctrl+J" size="sm" onClick={onClose} />
       </div>

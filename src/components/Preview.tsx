@@ -13,6 +13,8 @@ export interface PreviewHandle {
   highlight(selector: string): void;
   /** janela do iframe sandbox — única origem aceita para mensagens do preview */
   source(): Window | null;
+  /** console de APIs: pede para a página do preview enviar uma requisição */
+  netSend(req: { method: string; url: string; headers: [string, string][]; body: string; timeout: number }): void;
 }
 
 const DEVICES: Record<Exclude<Device, "full">, { w: number; h: number; label: string }> = {
@@ -60,6 +62,7 @@ export const Preview = forwardRef<PreviewHandle, Props>(function Preview(p, ref)
     reload: () => send({ __poiesisHost: 1, type: "render", html: htmlRef.current, hard: true }),
     highlight: (selector) => send({ __poiesisHost: 1, type: "highlight", selector }),
     source: () => host.current?.contentWindow ?? null,
+    netSend: (req) => send({ __poiesisHost: 1, type: "net-send", req }),
   }));
 
   useLayoutEffect(() => {

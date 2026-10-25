@@ -42,6 +42,8 @@ import { EditorTabs } from "@/components/EditorTabs";
 import { EditorContextMenu, symLabel } from "@/components/EditorContextMenu";
 import { Preview, type PreviewHandle } from "@/components/Preview";
 import { ConsolePanel } from "@/components/ConsolePanel";
+import { MocksDialog, NetworkPanel, RequestDialog, type NetRequest } from "@/components/NetworkPanel";
+import { MOCKS_FILE, NET_LIMITS, parseMocks, stringifyMocks, toHar, type MockRule, type MocksConfig, type NetEntry } from "@/lib/net";
 import { StatusBar } from "@/components/StatusBar";
 import { AssetView } from "@/components/AssetView";
 import { MarkdownView, isMarkdown } from "@/components/MarkdownView";
@@ -56,11 +58,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 const UI_KEY = "poiesis:ui";
 const loadUi = () => {
   try {
-    return { main: 50, stack: 52, cons: 68, ...JSON.parse(localStorage.getItem(UI_KEY) || "{}") };
+    return { main: 50, stack: 52, cons: 68, bottom: "console", netPreserve: false, ...JSON.parse(localStorage.getItem(UI_KEY) || "{}") };
   } catch {
-    return { main: 50, stack: 52, cons: 68 };
+    return { main: 50, stack: 52, cons: 68, bottom: "console", netPreserve: false };
   }
 };
+
+/** Regras de mock ativas do projeto (arquivo poiesis.mocks.json). */
+function activeMocks(p: Project): MockRule[] {
+  const f = p.files.find((x) => x.name === MOCKS_FILE);
+  if (!f) return [];
+  const { config } = parseMocks(f.content);
+  return config.enabled ? config.mocks.filter((m) => m.enabled) : [];
+}
 
 const STARTERS: Record<string, string> = {
   json: "{\n  \"nome\": \"valor\"\n}\n",
@@ -127,6 +137,12 @@ export default function App() {
   const [historyTick, setHistoryTick] = useState(0);
   const [compareRev, setCompareRev] = useState<Revision | null>(null);
   const historyInput = useRef<HTMLInputElement>(null);
+  /** registro de rede por projeto — só em memória, nunca persistido */
+  const [netLogs, setNetLogs] = useState<Record<string, NetEntry[]>>({});
+  const [reqDialog, setReqDialog] = useState<{ open: boolean; prefill?: NetRequest }>({ open: false });
+  const [mocksOpen, setMocksOpen] = useState(false);
+  const netQueue = useRef<[string, NetEntry][]>([]);
+  const netFlush = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchSeed, setSearchSeed] = useState<{ q: string; n: number } | null>(null);
   const [formatting, setFormatting] = useState(false);
   const [popout, setPopout] = useState(false);
@@ -337,12 +353,15 @@ export default function App() {
   const previewPageRef = useRef(previewPage);
   previewPageRef.current = previewPage;
 
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
   const runNow = useCallback((hard = false) => {
     const w = wsRef.current;
     if (!w) return;
     const p = w.projects[w.currentId];
-    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject, storage: previewStorage.current[p.id], session: SESSION });
+    const r = buildPage(p, previewPageRef.current, { console: true, autoInject: w.settings.autoInject, storage: previewStorage.current[p.id], session: SESSION, mocks: activeMocks(p) });
     if (w.settings.clearOnRun) setLogs([]);
+    if (!uiRef.current.netPreserve) setNetLogs((m) => (m[p.id]?.length ? { ...m, [p.id]: [] } : m));
     setErrorLine(null);
     setBusy(true);
     setBuilt((b) => (b.html === r.html && !hard ? b : r));
@@ -407,6 +426,27 @@ export default function App() {
               /* cheio: ignora */
             }
           }, 400);
+          break;
+        }
+        case "net": {
+          if (!p) break;
+          // junta as mensagens e aplica em lote (uma página que dispara milhares de requisições não trava o editor)
+          netQueue.current.push([p.id, d.entry]);
+          if (!netFlush.current)
+            netFlush.current = setTimeout(() => {
+              netFlush.current = null;
+              const batch = netQueue.current.splice(0);
+              setNetLogs((m) => {
+                const out = { ...m };
+                for (const [pid, e] of batch) {
+                  const list = out[pid] ?? [];
+                  const i = list.findIndex((x) => x.id === e.id && x.kind === e.kind);
+                  out[pid] = i >= 0 ? list.map((x, j) => (j === i ? e : x)) : [...list, e];
+                }
+                for (const pid of Object.keys(out)) if (out[pid].length > NET_LIMITS.entries) out[pid] = out[pid].slice(-NET_LIMITS.entries);
+                return out;
+              });
+            }, 80);
           break;
         }
         case "ready":
@@ -744,6 +784,97 @@ export default function App() {
       },
       duration: 8000,
     });
+  };
+
+  /* ---------------- rede e APIs ---------------- */
+  const netEntries = project ? (netLogs[project.id] ?? []) : [];
+  const mocksSrc = project?.files.find((f) => f.name === MOCKS_FILE)?.content;
+  const mocksParsed = useMemo(() => (mocksSrc != null ? parseMocks(mocksSrc) : null), [mocksSrc]);
+
+  /** cria ou troca o conteúdo de um arquivo de texto do projeto */
+  const upsertFile = (name: string, content: string) =>
+    updateProject((p) => {
+      const ex = p.files.find((f) => f.name === name);
+      if (ex) return { ...p, files: p.files.map((f) => (f.id === ex.id ? { ...f, content } : f)) };
+      return { ...p, files: [...p.files, { id: uid(), name, kind: kindOf(name), content, mime: mimeOf(name) }] };
+    });
+
+  const showNetwork = () => {
+    setUi((u: typeof ui) => ({ ...u, bottom: "network" }));
+    if (!settings?.console) updateSettings({ console: true });
+  };
+
+  const sendRequest = (r: NetRequest) => {
+    showNetwork();
+    preview.current?.netSend(r);
+  };
+
+  const saveMocks = (c: MocksConfig) => {
+    if (mocksSrc != null && mocksParsed?.errors.some((e) => e.includes("JSON inválido"))) {
+      return void toast.error(`${MOCKS_FILE} tem JSON inválido`, { description: "Corrija o arquivo antes de salvar pelo editor de mocks, para não perder o que está nele." });
+    }
+    upsertFile(MOCKS_FILE, stringifyMocks(c));
+    toast.success("Mocks salvos", { description: `${c.mocks.filter((m) => m.enabled).length} ativo(s) em ${MOCKS_FILE}` });
+  };
+
+  const mockFrom = (e: NetEntry) => {
+    if (!project || e.resBody?.v == null) return;
+    if (mocksSrc != null && mocksParsed?.errors.some((x) => x.includes("JSON inválido"))) return void toast.error(`${MOCKS_FILE} tem JSON inválido`);
+    let path = e.url;
+    let abs = true;
+    try {
+      const u = new URL(e.url);
+      path = u.origin + u.pathname;
+    } catch {
+      abs = false;
+      path = e.url.split("?")[0];
+    }
+    const slug = (e.method + "-" + (path.replace(/^https?:\/\//, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "") || "resposta")).toLowerCase().slice(0, 60);
+    const json = /json/i.test(e.resBody.mime ?? "") || /^\s*[[{]/.test(e.resBody.v);
+    let fixture = `mocks/${slug}.${json ? "json" : "txt"}`;
+    const names = new Set(project.files.map((f) => f.name));
+    for (let i = 2; names.has(fixture); i++) fixture = `mocks/${slug}-${i}.${json ? "json" : "txt"}`;
+    let body = e.resBody.v;
+    if (json) {
+      try {
+        body = JSON.stringify(JSON.parse(body), null, 2) + "\n";
+      } catch {
+        /* mantém */
+      }
+    }
+    const base = mocksParsed?.config ?? { version: 1 as const, enabled: true, mocks: [] };
+    const ids = new Set(base.mocks.map((m) => m.id));
+    let id = slug.slice(0, 40);
+    for (let i = 2; ids.has(id); i++) id = `${slug.slice(0, 36)}-${i}`;
+    const ct = e.resHeaders.find(([k]) => /^content-type$/i.test(k))?.[1];
+    const rule: MockRule = { id, enabled: true, method: e.method, url: abs ? path : path || "/", status: e.status || 200, headers: ct ? { "Content-Type": ct } : {}, bodyFile: fixture, delay: 0, error: null };
+    upsertFile(fixture, body);
+    upsertFile(MOCKS_FILE, stringifyMocks({ ...base, mocks: [...base.mocks, rule] }));
+    toast.success("Mock criado", { description: `Resposta salva em ${fixture} (só o corpo e o Content-Type). Revise se ela tiver dados pessoais.` });
+  };
+
+  const openMocksFile = () => {
+    if (!project) return;
+    if (!project.files.some((f) => f.name === MOCKS_FILE)) upsertFile(MOCKS_FILE, stringifyMocks({ version: 1, enabled: true, mocks: [] }));
+    setMocksOpen(false);
+    setTimeout(() => {
+      const f = wsRef.current?.projects[wsRef.current.currentId].files.find((x) => x.name === MOCKS_FILE);
+      if (f) openFile(f.id);
+    }, 50);
+  };
+
+  const exportHar = () => {
+    if (!project || !netEntries.length) return;
+    const har = toHar(netEntries, project.name);
+    download(`${slug(project.name)}-rede.har`, new Blob([JSON.stringify(har, null, 2)], { type: "application/json" }));
+    toast.success("HAR exportado", { description: "Tokens, cookies e senhas saem mascarados. Mesmo assim, revise antes de compartilhar." });
+  };
+
+  const jumpInitiator = (ini: string) => {
+    const m = /^(.*):(\d+)$/.exec(ini);
+    if (!m || !project) return;
+    const f = findFile(project.files, m[1]);
+    if (f) jumpTo(f.id, +m[2], 1);
   };
 
   /* ---------------- restauração do histórico ---------------- */
@@ -1093,6 +1224,9 @@ export default function App() {
   const commands: Cmd[] = settings
     ? [
         { id: "run", group: "Executar", label: "Executar agora", icon: "play_arrow", shortcut: "Ctrl ↵", run: () => runNow(true) },
+        { id: "net", group: "Rede", label: "Mostrar painel de rede", icon: "lan", run: showNetwork },
+        { id: "net-req", group: "Rede", label: "Nova requisição (console de APIs)", icon: "send", run: () => setReqDialog({ open: true }) },
+        { id: "net-mocks", group: "Rede", label: "Editar mocks", icon: "dns", run: () => setMocksOpen(true) },
         ...(folder.enabled
           ? [
               { id: "fold-open", group: "Pasta no computador", label: "Abrir pasta do computador…", icon: "folder_open", run: openLocalFolder },
@@ -1322,7 +1456,53 @@ export default function App() {
       }
       b={
         <div className="md-pane h-full">
+{ui.bottom === "network" ? (
+            <NetworkPanel
+              title={(
+            <div className="md-seg mr-2 h-7" role="tablist" aria-label="Painel inferior">
+              {(
+                [
+                  ["console", "Console", "terminal"],
+                  ["network", "Rede", "lan"],
+                ] as const
+              ).map(([k, label, icon]) => (
+                <button key={k} role="tab" aria-selected={ui.bottom === k} data-on={ui.bottom === k} onClick={() => setUi((u: typeof ui) => ({ ...u, bottom: k }))} className="!px-2.5 text-[12px]">
+                  <Icon name={icon} size={15} /> {label}
+                  {k === "network" && netEntries.length > 0 && <span className="text-[10.5px] tabular-nums opacity-70">{netEntries.length}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+              entries={netEntries}
+              mocks={mocksParsed?.config ?? null}
+              mockErrors={mocksParsed?.errors ?? []}
+              preserve={!!ui.netPreserve}
+              onPreserve={(v) => setUi((u: typeof ui) => ({ ...u, netPreserve: v }))}
+              onClear={() => setNetLogs((m) => ({ ...m, [project.id]: [] }))}
+              onClose={() => updateSettings({ console: false })}
+              onExport={exportHar}
+              onMocks={() => setMocksOpen(true)}
+              onRequest={(prefill) => setReqDialog({ open: true, prefill })}
+              onMockFrom={mockFrom}
+              onJump={jumpInitiator}
+            />
+          ) : (
           <ConsolePanel
+            title={(
+            <div className="md-seg mr-2 h-7" role="tablist" aria-label="Painel inferior">
+              {(
+                [
+                  ["console", "Console", "terminal"],
+                  ["network", "Rede", "lan"],
+                ] as const
+              ).map(([k, label, icon]) => (
+                <button key={k} role="tab" aria-selected={ui.bottom === k} data-on={ui.bottom === k} onClick={() => setUi((u: typeof ui) => ({ ...u, bottom: k }))} className="!px-2.5 text-[12px]">
+                  <Icon name={icon} size={15} /> {label}
+                  {k === "network" && netEntries.length > 0 && <span className="text-[10.5px] tabular-nums opacity-70">{netEntries.length}</span>}
+                </button>
+              ))}
+            </div>
+          )}
             logs={logs}
             onClear={() => setLogs([])}
             onEval={evalCode}
@@ -1333,6 +1513,7 @@ export default function App() {
             onClose={() => updateSettings({ console: false })}
             knownFile={(n) => !!findFile(project.files, n)}
           />
+          )}
         </div>
       }
     />
@@ -1566,6 +1747,16 @@ export default function App() {
             </div>
           </DialogContent>
         </Dialog>
+        <RequestDialog open={reqDialog.open} prefill={reqDialog.prefill} onOpenChange={(o) => setReqDialog((r) => ({ ...r, open: o }))} onSend={sendRequest} />
+        <MocksDialog
+          open={mocksOpen}
+          config={mocksParsed?.config ?? null}
+          errors={mocksParsed?.errors ?? []}
+          files={project.files.filter((f) => f.kind !== "asset" && f.name !== MOCKS_FILE).map((f) => f.name)}
+          onOpenChange={setMocksOpen}
+          onSave={saveMocks}
+          onOpenFile={openMocksFile}
+        />
         <CompareDialog
           open={!!compareRev}
           project={project}
