@@ -36,6 +36,8 @@ import { ProjectsPanel, ThemesPanel } from "@/components/SidePanels";
 import { CompareDialog, HistoryPanel } from "@/components/HistoryPanel";
 import { createSnapshot, deleteOrphans, exportHistory, importHistory, prune, restoreProject, type Reason, type Revision } from "@/lib/history";
 import { dbErrorMessage } from "@/lib/db";
+import { useFolderSync } from "@/lib/useFolderSync";
+import { folderSupported } from "@/lib/localfs";
 import { EditorTabs } from "@/components/EditorTabs";
 import { EditorContextMenu, symLabel } from "@/components/EditorContextMenu";
 import { Preview, type PreviewHandle } from "@/components/Preview";
@@ -49,6 +51,7 @@ import { CommandPalette, ImportDialog, RenameDialog, SettingsDialog, ShortcutsDi
 import { Icon, Logo } from "@/components/Icon";
 import { installRipple } from "@/components/md";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const UI_KEY = "poiesis:ui";
 const loadUi = () => {
@@ -196,7 +199,17 @@ export default function App() {
     return () => clearTimeout(t);
   }, [project?.files]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** projeto ligado a uma pasta sem acesso: edição bloqueada (ver useFolderSync) */
+  const readOnlyRef = useRef<(id: string | undefined) => boolean>(() => false);
+  const roWarned = useRef(0);
   const updateProject = useCallback((fn: (p: Project) => Project, touch = true) => {
+    if (touch && readOnlyRef.current(wsRef.current?.currentId)) {
+      if (Date.now() - roWarned.current > 4000) {
+        roWarned.current = Date.now();
+        toast.warning("Projeto somente leitura", { description: "A pasta do computador está sem acesso. Reconecte ou desvincule para editar." });
+      }
+      return;
+    }
     setWs((w) => {
       if (!w) return w;
       const cur = w.projects[w.currentId];
@@ -256,6 +269,69 @@ export default function App() {
       window.removeEventListener("pagehide", flushAuto);
     };
   }, [flushAuto]);
+
+  /* ---------------- pasta do computador ---------------- */
+  const [linkAsk, setLinkAsk] = useState<string | null>(null);
+  const decideRef = useRef<((v: "write" | "read" | null) => void) | null>(null);
+  const folder = useFolderSync({
+    enabled: !!settings?.localFolders && folderSupported(),
+    ignore: settings?.folderIgnore ?? "",
+    project,
+    updateProject,
+    checkpoint,
+    onConflict: (rev) => setCompareRev(rev),
+    notify: (kind, title, description) => toast[kind](title, { description, duration: kind === "warning" || kind === "error" ? 10000 : 4000 }),
+  });
+  readOnlyRef.current = folder.isReadOnly;
+  const folderStatus = project ? folder.status[project.id] : undefined;
+
+  // vínculos de projetos que não existem mais (excluídos em outra sessão) saem
+  useEffect(() => {
+    if (!ws || !folder.loaded) return;
+    for (const id of Object.keys(folder.status)) if (!ws.projects[id]) folder.unlink(id);
+  }, [folder.loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const folderError = (title: string) => (e: unknown) => toast.error(title, { description: (e as Error)?.message || String(e) });
+
+  const openLocalFolder = async () => {
+    const t = toast.loading("Lendo a pasta…");
+    try {
+      const p = await folder.openFolder();
+      toast.dismiss(t);
+      if (!p) return;
+      setWs((w) => (w ? { ...w, projects: { ...w.projects, [p.id]: p }, order: [p.id, ...w.order], currentId: p.id } : w));
+      checkpoint("import", p, { label: `Pasta ${p.name}` });
+      setPreviewPage(p.entry || null);
+      setLogs([]);
+      toast.success(`Pasta "${p.name}" aberta`, { description: `${p.files.length} arquivos. O que você editar aqui é gravado direto nela.` });
+    } catch (e) {
+      toast.dismiss(t);
+      folderError("Não foi possível abrir a pasta")(e);
+    }
+  };
+
+  const linkCurrentFolder = async () => {
+    if (!project) return;
+    try {
+      const ok = await folder.linkProject(
+        project,
+        (name) =>
+          new Promise((res) => {
+            decideRef.current = res;
+            setLinkAsk(name);
+          })
+      );
+      if (ok) toast.success("Projeto vinculado à pasta", { description: "As edições agora vão direto para os arquivos do computador." });
+    } catch (e) {
+      folderError("Não foi possível vincular a pasta")(e);
+    }
+  };
+
+  const unlinkFolder = async () => {
+    if (!project) return;
+    await folder.unlink(project.id);
+    toast("Projeto desvinculado da pasta", { description: "Os arquivos continuam no computador; o projeto segue salvo no navegador." });
+  };
 
   /* ---------------- build do preview ---------------- */
   const previewPageRef = useRef(previewPage);
@@ -1017,6 +1093,17 @@ export default function App() {
   const commands: Cmd[] = settings
     ? [
         { id: "run", group: "Executar", label: "Executar agora", icon: "play_arrow", shortcut: "Ctrl ↵", run: () => runNow(true) },
+        ...(folder.enabled
+          ? [
+              { id: "fold-open", group: "Pasta no computador", label: "Abrir pasta do computador…", icon: "folder_open", run: openLocalFolder },
+              ...(folderStatus
+                ? [
+                    { id: "fold-sync", group: "Pasta no computador", label: "Sincronizar com a pasta agora", icon: "sync", run: () => project && folder.syncNow(project.id) },
+                    { id: "fold-unlink", group: "Pasta no computador", label: "Desvincular da pasta", icon: "link_off", run: unlinkFolder },
+                  ]
+                : [{ id: "fold-link", group: "Pasta no computador", label: "Vincular este projeto a uma pasta…", icon: "add_link", run: linkCurrentFolder }]),
+            ]
+          : []),
         { id: "auto", group: "Executar", label: settings.autoRun ? "Desligar modo ao vivo" : "Ligar modo ao vivo", icon: "bolt", run: () => updateSettings({ autoRun: !settings.autoRun }) },
         { id: "fmt", group: "Editor", label: "Formatar documento", icon: "format_align_left", shortcut: "Shift Alt F", run: format },
         { id: "def", group: "Editor", label: "Definição do símbolo no cursor", icon: "menu_book", shortcut: "Alt F1", run: () => editor.current?.showDefinition() },
@@ -1084,6 +1171,23 @@ export default function App() {
 
   const editorPane = (
     <div className="md-pane flex h-full flex-col" style={{ background: "var(--syn-bg)" }}>
+      {folderStatus && folderStatus.state !== "linked" && (
+        <div role="alert" className="flex shrink-0 items-center gap-3 border-b border-md-outline-v bg-[color-mix(in_oklab,var(--amber)_14%,transparent)] px-4 py-2 text-[12.5px] text-md-on-surface">
+          <Icon name={folderStatus.state === "permission" ? "lock" : "folder_off"} size={18} className="text-[var(--amber)]" />
+          <span className="min-w-0 flex-1">
+            <b className="font-code">{folderStatus.name}</b> —{" "}
+            {folderStatus.state === "permission"
+              ? "o navegador precisa da sua permissão para acessar esta pasta de novo. Até lá, o projeto fica somente leitura."
+              : (folderStatus.error ?? "não foi possível acessar a pasta.") + " O projeto fica somente leitura, com o último conteúdo conhecido."}
+          </span>
+          <button className="md-btn md-btn-filled h-8" onClick={() => project && folder.reconnect(project.id).then((ok) => !ok && toast.error("Ainda sem acesso à pasta"))}>
+            {folderStatus.state === "permission" ? "Permitir acesso" : "Tentar de novo"}
+          </button>
+          <button className="md-btn md-btn-text h-8" onClick={unlinkFolder}>
+            Desvincular
+          </button>
+        </div>
+      )}
       <EditorTabs
         tabs={tabs}
         activeId={project.activeFile}
@@ -1127,6 +1231,7 @@ export default function App() {
             <CodeEditor
               ref={editor}
               file={activeFile}
+              readOnly={!!folderStatus && folderStatus.state !== "linked"}
               settings={settings}
               dark={theme.dark}
               errorLine={errorLine}
@@ -1300,7 +1405,14 @@ export default function App() {
                 )}
                 {settings.panel === "search" && <SearchPanel files={project.files} seed={searchSeed} onJump={jumpTo} onReplaceAll={replaceAll} />}
                 {settings.panel === "projects" && (
-                  <ProjectsPanel projects={ws.order.map((id) => ws.projects[id])} currentId={project.id} onSwitch={switchProject} onNew={createProject} />
+                  <ProjectsPanel
+                    projects={ws.order.map((id) => ws.projects[id])}
+                    currentId={project.id}
+                    onSwitch={switchProject}
+                    onNew={createProject}
+                    linked={Object.fromEntries(Object.entries(folder.status).map(([id, st]) => [id, st.name]))}
+                    folders={folder.enabled ? { onOpen: openLocalFolder, onLink: linkCurrentFolder, currentLinked: !!folderStatus } : undefined}
+                  />
                 )}
                 {settings.panel === "history" && (
                   <HistoryPanel
@@ -1344,6 +1456,10 @@ export default function App() {
             missing={built.missing}
             onConsole={() => updateSettings({ console: true })}
             onTab={() => updateSettings({ tabSize: settings.tabSize === 2 ? 4 : 2 })}
+            folder={folderStatus}
+            onFolderSync={() => project && folder.syncNow(project.id)}
+            onFolderReconnect={() => project && folder.reconnect(project.id).then((ok) => !ok && toast.error("Ainda sem acesso à pasta"))}
+            onFolderUnlink={unlinkFolder}
           />
         </div>
 
@@ -1409,6 +1525,47 @@ export default function App() {
           onRestore={() => backupInput.current?.click()}
         />
         <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <Dialog
+          open={!!linkAsk}
+          onOpenChange={(o) => {
+            if (!o) {
+              decideRef.current?.(null);
+              decideRef.current = null;
+              setLinkAsk(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>A pasta "{linkAsk}" já tem arquivos</DialogTitle>
+              <DialogDescription className="leading-relaxed">Escolha qual lado vale. O que for substituído fica salvo no histórico antes.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2">
+              {(
+                [
+                  ["write", "upload", "Gravar este projeto na pasta", "Os arquivos do projeto vão para a pasta (os de mesmo nome são sobrescritos). Arquivos que só existem na pasta entram no projeto."],
+                  ["read", "download", "Trazer os arquivos da pasta", "O conteúdo do projeto é trocado pelo da pasta."],
+                ] as const
+              ).map(([mode, icon, title, desc]) => (
+                <button
+                  key={mode}
+                  className="md-item md-card-outlined h-auto items-start gap-3 rounded-xl p-3 text-left"
+                  onClick={() => {
+                    decideRef.current?.(mode);
+                    decideRef.current = null;
+                    setLinkAsk(null);
+                  }}
+                >
+                  <Icon name={icon} size={20} className="mt-0.5 text-md-primary" />
+                  <span>
+                    <span className="block text-[13.5px] font-medium text-md-on-surface">{title}</span>
+                    <span className="block text-[12px] leading-snug text-md-on-variant">{desc}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
         <CompareDialog
           open={!!compareRev}
           project={project}

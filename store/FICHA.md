@@ -46,6 +46,10 @@ HISTÓRICO LOCAL
 • Pontos de restauração com nome e nota
 • Compare versões lado a lado e restaure um trecho, um arquivo ou o projeto inteiro — sem Git, sem nuvem
 
+PASTA NO COMPUTADOR (opcional)
+• Abra uma pasta real e edite direto nos arquivos — sem importar nem exportar
+• Mudanças feitas em outro editor entram sozinhas; conflitos vão para o histórico e abrem a comparação
+
 PROJETOS
 • Vários projetos com pastas, arrastar e soltar, e modelos para começar
 • Importar arquivos e pastas (adicionando, mesclando ou como projeto novo)
@@ -74,6 +78,7 @@ A complete web code editor in a Chrome tab: write HTML, CSS and JavaScript and s
 • 3,932 Material Symbols icons picker
 • Flicker-free live preview with phone/tablet modes, pop-out window and a real console with a REPL
 • Local version history: automatic snapshots, named restore points, side-by-side diff and restore (no Git, no cloud)
+• Optional: edit a real folder on your computer directly, with external changes and conflict handling
 • Multiple projects with folders, import/export (.zip or single HTML), JSON, Markdown and text files
 • 9 themes, Material Design 3 interface
 

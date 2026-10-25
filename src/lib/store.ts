@@ -29,6 +29,8 @@ export const DEFAULT_SETTINGS: Settings = {
   device: "full",
   landscape: false,
   history: { ...DEFAULT_HISTORY },
+  localFolders: false,
+  folderIgnore: "node_modules, .git, dist, build, .DS_Store, Thumbs.db",
 };
 
 export function newProject(templateId = "gênese", name?: string): Project {

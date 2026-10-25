@@ -10,7 +10,7 @@ Este é o plano vivo de evolução do Poiesis. A especificação detalhada dos m
 | --- | --- | --- |
 | **0 — Fundação** | Armazenamento em IndexedDB (um registro por projeto, gravação incremental e atômica), migração do formato antigo, indicador de espaço, canal do preview versionado e validado, testes E2E no repositório | ✅ 2.4.0 |
 | **1 — Histórico local** (módulo 6) | Snapshots por hash, automáticos e manuais, pontos antes de operações destrutivas, linha do tempo, comparador lado a lado e em linha, restauração de trecho, arquivo ou projeto, retenção, exportar e importar | ✅ 2.4.0 |
-| **2 — Pasta local** (módulo 7) | Editar diretamente uma pasta do computador, como opção nas preferências | Planejado |
+| **2 — Pasta local** (módulo 7) | Editar diretamente uma pasta do computador, como opção nas preferências | ✅ 2.5.0 |
 | **3 — Network MVP** (módulo 4) | Captura de `fetch`/XHR do preview, mocks locais, latência e erros simulados | Planejado |
 | **4 — Inspetor MVP** (módulo 1) | Seleção no preview, árvore DOM, estilos computados, box model, edição temporária | Planejado |
 | **5 — Extension Studio MVP** (módulo 5) | Templates MV3, editor de manifesto sincronizado, validação e exportação em ZIP | Planejado |
@@ -42,9 +42,37 @@ O Network veio antes do Inspetor porque reaproveita o `fetch` virtual que o runt
 
 **Testes:** `pnpm build && pnpm test:e2e` roda todas as suítes em `tests/e2e/` (Playwright + Chromium com a extensão carregada).
 
-**Pendências desta fase:**
+**Pendências da Fase 1:**
 - Filtro de "segredos conhecidos" (por exemplo `.env`) nos snapshots: hoje o limite por tamanho de arquivo cobre o caso dos binários grandes.
 - Recuperar um projeto excluído direto pelo histórico: hoje o histórico dele fica guardado até ser limpo, mas não há botão para recriar o projeto.
+
+## O que já existe (fase 2)
+
+**Pasta local** (`src/lib/localfs.ts` e `src/lib/useFolderSync.ts`), as quatro etapas:
+
+1. **Leitura e escrita:** abrir uma pasta como projeto ou vincular um projeto existente.
+   - Se a pasta já tiver arquivos, você escolhe: "gravar o projeto na pasta" ou "trazer a pasta para o projeto".
+   - Grava só os arquivos que mudaram, com debounce e uma operação de disco por vez.
+   - Criar, renomear, mover e excluir valem na pasta. Pastas que ficaram vazias são removidas sem recursão, então nunca apaga o que o Poiesis não mostra.
+2. **Mudanças externas e conflitos:**
+   - A pasta é varrida ao focar a aba, a cada 4 s com a aba visível e pelo `FileSystemObserver` quando o navegador tem.
+   - Uma mudança de fora sem edição local pendente entra sozinha, com uma versão "Antes de mudanças da pasta" no histórico.
+   - Se o arquivo mudou no disco e também tem edição local, o Poiesis **não sobrescreve**. A versão local vai para o histórico (motivo "Conflito"), a do disco é carregada e o comparador abre.
+   - Arquivo apagado fora mas com edição local pendente é gravado de novo.
+3. **Reconexão:**
+   - Na abertura, confere a permissão e se a pasta ainda existe.
+   - Sem permissão ou sem a pasta, mostra uma faixa de aviso e o projeto fica **somente leitura** (editor travado e alterações bloqueadas), com "Permitir acesso / Tentar de novo" e "Desvincular".
+   - Mudanças feitas com o Poiesis fechado entram na reabertura.
+4. **Ignorados e polimento:**
+   - Lista configurável nas Preferências, mais o `.gitignore` da pasta.
+   - Limites: 2.000 arquivos, 20 MB por arquivo e 300 MB por projeto, com o que ficou de fora mostrado no menu da pasta.
+   - Indicador na barra de status com menu (sincronizar, reconectar, desvincular), comandos na paleta, botões no painel Projetos e indicação da pasta em cada projeto da lista.
+
+**Testes:** `tests/e2e/pasta.py` usa uma pasta do OPFS no lugar do seletor do sistema, que não dá para automatizar, e cobre leitura, ignorados, escrita, criar/renomear/excluir, mudança externa, conflito, reabertura, pasta removida, vincular e desligar a opção.
+
+**Limites conhecidos:**
+- O pedido de permissão do Chrome depois de reiniciar só é testável à mão, porque o OPFS nunca pede permissão.
+- Com a opção desligada, projetos já vinculados continuam vinculados (o indicador e o menu "Desvincular" continuam aparecendo). Só somem as entradas para abrir e vincular pastas novas.
 
 ---
 

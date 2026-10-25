@@ -10,7 +10,7 @@
 import type { FileKind, HistorySettings, PFile, Project } from "./types";
 import { reqP, tx } from "./db";
 
-export type Reason = "auto" | "manual" | "import" | "pre-restore" | "pre-delete" | "pre-replace" | "pre-rename" | "pre-import" | "pre-backup";
+export type Reason = "auto" | "manual" | "import" | "pre-restore" | "pre-delete" | "pre-replace" | "pre-rename" | "pre-import" | "pre-backup" | "pre-external" | "conflict";
 
 export const REASON_LABEL: Record<Reason, string> = {
   auto: "Automático",
@@ -22,6 +22,8 @@ export const REASON_LABEL: Record<Reason, string> = {
   "pre-rename": "Antes de renomear",
   "pre-import": "Antes de importar",
   "pre-backup": "Antes de restaurar backup",
+  "pre-external": "Antes de mudanças da pasta",
+  conflict: "Conflito com a pasta",
 };
 
 export interface Entry {

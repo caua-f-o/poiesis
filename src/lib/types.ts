@@ -48,6 +48,10 @@ export interface Settings {
   device: Device;
   landscape: boolean;
   history: HistorySettings;
+  /** permite ligar projetos a pastas do computador (File System Access) */
+  localFolders: boolean;
+  /** padrões ignorados ao ler pastas, separados por vírgula */
+  folderIgnore: string;
 }
 
 export interface HistorySettings {

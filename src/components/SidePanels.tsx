@@ -20,16 +20,34 @@ export function ProjectsPanel({
   currentId,
   onSwitch,
   onNew,
+  linked = {},
+  folders,
 }: {
   projects: Project[];
   currentId: string;
   onSwitch(id: string): void;
   onNew(template: string): void;
+  /** projetos ligados a uma pasta do computador → nome da pasta */
+  linked?: Record<string, string>;
+  /** presente quando a opção "Pasta no computador" está ligada */
+  folders?: { onOpen(): void; onLink(): void; currentLinked: boolean };
 }) {
   return (
     <div className="flex h-full flex-col">
       <PanelHeader title="Projetos" />
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        {folders && (
+          <div className="mb-2 grid gap-1.5 px-1">
+            <button onClick={folders.onOpen} className="md-btn md-btn-tonal h-9 justify-start">
+              <Icon name="folder_open" size={18} /> Abrir pasta do computador
+            </button>
+            {!folders.currentLinked && (
+              <button onClick={folders.onLink} className="md-btn md-btn-text h-8 justify-start text-[12.5px]">
+                <Icon name="add_link" size={18} /> Vincular este projeto a uma pasta
+              </button>
+            )}
+          </div>
+        )}
         {projects.map((p) => {
           const on = p.id === currentId;
           const kinds = new Set(p.files.map((f) => f.kind));
@@ -41,6 +59,11 @@ export function ProjectsPanel({
                 <span className="block text-[11.5px] text-md-on-variant">
                   {p.files.length} arquivos · {ago(p.updatedAt)}
                 </span>
+                {linked[p.id] && (
+                  <span className="mt-0.5 flex items-center gap-1 text-[11px] text-md-primary">
+                    <Icon name="computer" size={13} /> <span className="truncate font-code">{linked[p.id]}</span>
+                  </span>
+                )}
                 <span className="mt-1 flex gap-1">
                   {(["html", "css", "js", "asset"] as const)
                     .filter((k) => kinds.has(k))

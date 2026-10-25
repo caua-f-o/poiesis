@@ -21,6 +21,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatBytes, storageUsage, type StorageUsage } from "@/lib/db";
+import { folderSupported } from "@/lib/localfs";
 
 /* ---------------- preferências ---------------- */
 
@@ -69,6 +70,7 @@ export function SettingsDialog({
   onRestore(): void;
 }) {
   const theme = THEMES.find((t) => t.id === settings.theme) ?? THEMES[0];
+  const folderOk = folderSupported();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[520px] gap-0 p-0">
@@ -132,6 +134,33 @@ export function SettingsDialog({
           <Row icon="mop" title="Limpar console ao executar">
             <Switch checked={settings.clearOnRun} onCheckedChange={(v) => onChange({ clearOnRun: v })} />
           </Row>
+          <div className="eyebrow pb-1 pt-4">Pasta no computador</div>
+          <Row
+            icon="computer"
+            title="Editar pastas do computador"
+            hint={
+              folderOk
+                ? "Abre uma pasta real e grava as edições direto nos arquivos. O navegador pede permissão pasta por pasta."
+                : "Este navegador não permite acessar pastas (precisa de Chrome, Edge ou outro Chromium recente)."
+            }
+          >
+            <Switch checked={settings.localFolders && folderOk} disabled={!folderOk} onCheckedChange={(v) => onChange({ localFolders: v })} />
+          </Row>
+          {settings.localFolders && folderOk && (
+            <div className="flex items-start gap-4 py-3">
+              <Icon name="visibility_off" size={21} className="mt-1 text-md-on-variant" />
+              <label className="min-w-0 flex-1 text-[13.5px] text-md-on-surface">
+                Ignorar ao ler pastas
+                <input
+                  defaultValue={settings.folderIgnore}
+                  onBlur={(e) => onChange({ folderIgnore: e.target.value })}
+                  spellCheck={false}
+                  className="mt-1 h-9 w-full rounded-lg border border-md-outline bg-transparent px-3 font-code text-[12.5px] text-md-on-surface outline-none focus:border-md-primary"
+                />
+                <span className="mt-1 block text-[12px] leading-snug text-md-on-variant">Separados por vírgula; aceita * (ex.: *.log). O .gitignore da pasta também vale.</span>
+              </label>
+            </div>
+          )}
           <div className="eyebrow pb-1 pt-4">Histórico local</div>
           <Row icon="history" title="Versão automática" hint={settings.history.interval ? `Depois de ${settings.history.interval} s sem editar, se algo mudou` : "Desligada — só pontos manuais e antes de operações"}>
             <div className="md-seg">

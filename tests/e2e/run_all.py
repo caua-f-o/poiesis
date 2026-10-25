@@ -8,7 +8,7 @@ Requer Python com Playwright e um Chromium instalado (`pip install playwright &&
 import os, re, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SUITES = ["basico", "interface", "autocompletar", "verificacao", "emmet", "seguranca", "historico"]
+SUITES = ["basico", "interface", "autocompletar", "verificacao", "emmet", "seguranca", "historico", "pasta"]
 
 def main():
     chosen = sys.argv[1:] or SUITES

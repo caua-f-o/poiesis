@@ -41,6 +41,14 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 - Restauração de um trecho, de um arquivo ou do projeto inteiro, sempre com volta.
 - Exportar e importar com verificação por hash.
 
+**Pasta no computador** (opcional; ligue em Preferências):
+- Abra uma pasta real do computador ou vincule um projeto a uma pasta. As edições são gravadas direto nos arquivos, só os que mudaram.
+- Criar, renomear e excluir no explorador também valem na pasta. `node_modules`, `.git`, `dist`, o `.gitignore` e o que você configurar ficam de fora.
+- Mudanças feitas fora do Poiesis (VS Code, git) entram sozinhas.
+- Se você e outro programa mexerem no mesmo arquivo ao mesmo tempo, as duas versões ficam no histórico e o comparador abre.
+- Sem acesso à pasta (permissão, pasta movida ou apagada), o projeto fica somente leitura até reconectar ou desvincular.
+- Não pede nenhuma permissão nova à extensão: o navegador pergunta pasta por pasta.
+
 **Projeto**
 - Pastas de verdade: criar, renomear, mover e excluir; arrastar arquivos e pastas entre elas; soltar arquivos do computador direto numa pasta.
 - Importar **adicionando** ao projeto (sem substituir nada — nomes repetidos ganham sufixo), **mesclando** ou como **projeto novo**, escolhendo a pasta de destino.

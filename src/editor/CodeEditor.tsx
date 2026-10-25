@@ -117,6 +117,8 @@ interface Props {
   file: PFile | null;
   settings: Settings;
   dark: boolean;
+  /** bloqueia a edição (ex.: projeto ligado a uma pasta sem acesso) */
+  readOnly?: boolean;
   errorLine: { fileId: string; line: number; col: number; message: string } | null;
   onChange(id: string, content: string): void;
   onCursor(info: CursorInfo): void;
@@ -186,6 +188,8 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
   settingsRef.current = settings;
   const darkRef = useRef(dark);
   darkRef.current = dark;
+  const roRef = useRef(!!props.readOnly);
+  roRef.current = !!props.readOnly;
   const menuFixes = useRef<{ pos: number; list: ReturnType<typeof fixesAt> }>({ pos: 0, list: [] });
   const errorRef = useRef(errorLine);
   errorRef.current = errorLine;
@@ -204,6 +208,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
     tab: new Compartment(),
     emmet: new Compartment(),
     dark: new Compartment(),
+    ro: new Compartment(),
   });
 
   const fileLang = (): Lang => (fileRef.current ? langOfKind(fileRef.current.kind, fileRef.current.name) : "other");
@@ -226,6 +231,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
       tab: [EditorState.tabSize.of(s.tabSize), indentUnit.of(" ".repeat(s.tabSize))],
       emmet: s.emmet && emmetOn ? emmetExtension(() => langOfKind(f.kind, f.name)) : [],
       dark: EditorView.darkTheme.of(isDark),
+      ro: roRef.current ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : [],
     };
   };
 
@@ -238,6 +244,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
       c.tab.reconfigure(se.tab),
       c.emmet.reconfigure(se.emmet),
       c.dark.reconfigure(se.dark),
+      c.ro.reconfigure(se.ro),
     ];
   };
 
@@ -248,6 +255,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
       doc: f.content,
       extensions: [
         c.emmet.of(se.emmet),
+        c.ro.of(se.ro),
         def.current.extensions,
         tooltips({ parent: document.body, position: "fixed" }),
         lineNumbers(),
@@ -380,7 +388,7 @@ export const CodeEditor = forwardRef<EditorHandle, Props>(function CodeEditor(pr
     const v = view.current;
     if (!v || !file || file.kind === "asset") return;
     v.dispatch({ effects: reconfig(file) });
-  }, [settings.fontSize, settings.wrap, settings.tabSize, settings.emmet, dark]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings.fontSize, settings.wrap, settings.tabSize, settings.emmet, dark, props.readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // o índice do projeto mudou (arquivos novos, ids, variáveis…) → verifica de novo
   useEffect(() => {

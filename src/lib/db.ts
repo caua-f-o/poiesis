@@ -7,12 +7,13 @@
  *  - projects   um registro por projeto (keyPath "id")
  *  - blobs      conteúdo de arquivos do histórico, endereçado por hash (keyPath "h")
  *  - revisions  versões do histórico (keyPath "id"; índice "project")
+ *  - links      vínculo de projeto com pasta do computador (keyPath "projectId"; v2)
  */
 
 const NAME = "poiesis";
-const VERSION = 1;
+const VERSION = 2;
 
-export type StoreName = "meta" | "projects" | "blobs" | "revisions";
+export type StoreName = "meta" | "projects" | "blobs" | "revisions" | "links";
 
 let opening: Promise<IDBDatabase> | null = null;
 
@@ -30,6 +31,8 @@ export function openDb(): Promise<IDBDatabase> {
         const s = db.createObjectStore("revisions", { keyPath: "id" });
         s.createIndex("project", "projectId", { unique: false });
       }
+      // v2: pasta local
+      if (!db.objectStoreNames.contains("links")) db.createObjectStore("links", { keyPath: "projectId" });
     };
     req.onsuccess = () => {
       const db = req.result;
