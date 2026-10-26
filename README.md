@@ -1,15 +1,14 @@
-# Poiesis
+![Poiesis: banner](store/promo-marquee-1400x560.png)
 
 > **ποίησις** (*poíēsis*) — para os gregos, o ato de trazer à existência o que antes não era.
-> **Onde seu código ganha vida.**
 
 Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e JavaScript com realce de sintaxe estilo VS Code, preview ao vivo ao lado, console de verdade e importação de projetos inteiros.
 
 ![Poiesis: editor e preview ao vivo](store/captura-1.png)
 
-**O ícone:** um `</>` cuja barra brota — o caule dourado nasce no meio da sintaxe e abre em folha e botão. Para Heidegger, a *physis* (a flor que desabrocha) é a forma mais alta de *poiesis*; aqui, o código é a semente.
+Para Heidegger, a *physis* (a flor que desabrocha) é a forma mais alta de *poiesis*; aqui, o código é a semente.
 
-## Instalar
+## Instalação
 
 1. Descompacte `Poiesis.zip`.
 2. Abra `chrome://extensions` e ligue o **Modo do desenvolvedor**.
@@ -106,10 +105,6 @@ Extensão do Chrome que abre um editor de código web numa aba: HTML, CSS e Java
 | Recarregar preview | `Ctrl+R` |
 | Inspecionar elemento | `Ctrl+Shift+C` |
 
-## Roadmap
-
-Planejamento e histórico das fases em [`ROADMAP.md`](ROADMAP.md).
-
 ## Privacidade
 
 O Poiesis não coleta nenhum dado: projetos e configurações ficam só no armazenamento local do navegador, e a extensão não faz requisições de rede. Os detalhes estão em [`PRIVACIDADE.md`](PRIVACIDADE.md).
@@ -117,22 +112,6 @@ O Poiesis não coleta nenhum dado: projetos e configurações ficam só no armaz
 ## Como funciona a segurança
 
 O código do usuário roda numa **página sandbox** declarada no manifesto: origem isolada, sem acesso às APIs da extensão nem aos seus dados. É isso que permite scripts inline, `eval` e bibliotecas de CDN no preview, enquanto as páginas da extensão continuam com a CSP rígida do Manifest V3. O editor só aceita mensagens vindas do iframe do preview, e o console do preview só aceita comandos da página sandbox que o hospeda. As únicas permissões pedidas são `storage` e `unlimitedStorage`, para guardar os projetos no próprio navegador.
-
-## Desenvolver
-
-```bash
-pnpm install
-pnpm icons   # recorta a fonte Material Symbols só com os ícones usados (precisa de Python + fonttools + brotli)
-pnpm build   # gera a extensão em dist/
-```
-
-Stack: React 19, TypeScript, Vite, Tailwind, Radix/shadcn (reestilizado em Material 3), CodeMirror 6, núcleo do Emmet (com integração própria em `src/editor/emmet.ts`), Prettier, fflate. Fontes locais: Roboto Flex, JetBrains Mono, Instrument Serif, Lavishly Yours (títulos) e Material Symbols Rounded. O ícone sai de `design/icon.svg` (`cd design && python3 render.py`). Descrições de reserva do MDN via `@vscode/web-custom-data` (`python3 design/build_mdn.py`).
-
-`pnpm test:e2e` roda os testes de ponta a ponta em `tests/e2e/` contra o `dist/` (precisa de Python com Playwright e Chromium). `pnpm promo` regenera as imagens promocionais em `store/`. O texto da ficha da Chrome Web Store, as justificativas de permissão e as respostas da aba de privacidade estão em [`store/FICHA.md`](store/FICHA.md).
-
-A música de foco é gerada por `python3 design/musica/compor.py` (precisa de numpy, scipy e ffmpeg com libopus) e sai em `public/audio/`.
-
-O build também gera `dist/LICENSE` e `dist/THIRD_PARTY_LICENSES.txt`, que traz a licença de cada pacote que entra na extensão.
 
 ## Licença
 
